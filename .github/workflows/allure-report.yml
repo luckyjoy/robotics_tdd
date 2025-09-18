@@ -1,0 +1,58 @@
+name: Allure Report CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      # This is crucial for the workflow to push to the gh-pages branch.
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest allure-pytest
+
+      - name: Run tests and generate Allure results
+        run: pytest --alluredir=allure-results
+
+      - name: Build Allure Report
+        uses: simple-elf/allure-report-action@v1.7
+        id: allure-report
+        with:
+          allure_results: allure-results
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          allure_report_path: allure-report
+      
+      - name: Deploy report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report
+          publish_branch: gh-pages
+          keep_files: false
+          
+      - name: Post report link to PR
+        if: github.event_name == 'pull_request'
+        uses: Sibz/github-status-action@v1
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          context: 'Allure Test Report'
+          state: 'success'
+          sha: ${{ github.event.pull_request.head.sha }}
+          target_url: ${{ steps.allure-report.outputs.report_url }}
