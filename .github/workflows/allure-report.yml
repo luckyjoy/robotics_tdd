@@ -12,7 +12,6 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-      # This is crucial for the workflow to push to the gh-pages branch.
       contents: write
 
     steps:
@@ -36,8 +35,6 @@ jobs:
         id: allure-report
         with:
           allure_results: allure-results
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          allure_report_path: allure-report
       
       - name: Deploy report to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
