@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Robotics Frameout CI/CD Pipeline
 
 on:
   push:
@@ -33,19 +33,22 @@ jobs:
           pip install pytest pytest-html
 
       - name: Run tests and generate HTML report
+        # The script now generates the report as index.html in the root
         run: python run_all_tests.py
 
       - name: Upload HTML report artifact
         uses: actions/upload-artifact@v4
         with:
           name: html-report-${{ matrix.os }}
-          path: report.html
+          # The path is now simply 'index.html' from the root of the repo
+          path: index.html
 
       - name: Deploy Report to GitHub Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-latest'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./reports
+          # Publish from the root directory of the repo
+          publish_dir: .
           publish_branch: gh-pages
           keep_files: true

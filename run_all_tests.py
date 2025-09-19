@@ -27,7 +27,8 @@ def main():
     args = [
         "-v",
         "-m", "sim",
-        "--html=reports/automation_report.html",
+        "--html=index.html",
+        "--self-contained-html",
         "tests/"
     ]
 
