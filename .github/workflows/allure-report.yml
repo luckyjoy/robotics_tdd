@@ -1,4 +1,4 @@
-name: Allure Report CI
+name: Robotics Simulation Report CI
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     permissions:
       contents: write
-      
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,32 +28,16 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pytest allure-pytest
+          pip install pytest pytest-html
 
-      - name: Run tests and generate Allure results
-        run: pytest --alluredir=allure-results
+      - name: Run tests and generate HTML report
+        run: python run_all_tests.py
 
-      - name: Build Allure Report
-        uses: simple-elf/allure-report-action@v1.7
-        id: allure-report
-        with:
-          allure_results: allure-results
-      
-      - name: Deploy report to GitHub Pages
+      - name: Deploy HTML Report to GitHub Pages
         if: always()
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: allure-report
+          publish_dir: .
           publish_branch: gh-pages
-          keep_files: false
-          
-      - name: Post report link to PR
-        if: github.event_name == 'pull_request'
-        uses: Sibz/github-status-action@v1
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          context: 'Allure Test Report'
-          state: 'success'
-          sha: ${{ github.event.pull_request.head.sha }}
-          target_url: ${{ steps.allure-report.outputs.report_url }}
+          keep_files: true
