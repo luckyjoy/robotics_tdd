@@ -1,4 +1,4 @@
-name: Robotics Simulation Report CI
+name: CI/CD Pipeline
 
 on:
   push:
@@ -9,13 +9,15 @@ on:
       - main
 
 jobs:
-  build-and-deploy:
+  test-and-report:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
     permissions:
       contents: write
+      pages: write
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -33,11 +35,17 @@ jobs:
       - name: Run tests and generate HTML report
         run: python run_all_tests.py
 
-      - name: Deploy HTML Report to GitHub Pages
-        if: always()
+      - name: Upload HTML report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-report-${{ matrix.os }}
+          path: report.html
+
+      - name: Deploy Report to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-latest'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
+          publish_dir: ./reports
           publish_branch: gh-pages
           keep_files: true
