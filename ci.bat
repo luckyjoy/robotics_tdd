@@ -10,7 +10,7 @@ rem echo.
 rem echo Git pushed a dummy file for CI Demo
 echo.
 echo git commit -m "Add a dummy file to trigger Jenkins Webhooks and Github Workflow Actions ..."
-git commit -m ""Add a dummy file to trigger Jenkins/Github CI..."
+git commit -m "Add a dummy file to trigger Jenkins/Github CI..."
 
 REM Ensure branch is main
 git branch -M main
@@ -30,7 +30,8 @@ start "" "https://github.com/luckyjoy/robotics_bdd/actions"
 
 echo.
 
-echo   A new build has been triggred at secured Github server: https://github.com/luckyjoy/robotics_bdd
+echo A new build has been triggred at secured Github server: https://github.com/luckyjoy/robotics_bdd
+echo.
 echo A new build has been triggred at secured Jenkins server: https://localhost:8443/view/all/builds
 echo.
 
