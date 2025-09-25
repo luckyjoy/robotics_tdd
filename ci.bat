@@ -2,6 +2,7 @@
 
 echo %RANDOM% > dummy.txt
 echo Add dummy file dummy.txt
+
 git add .
 
 REM Commit with message
@@ -16,6 +17,7 @@ git branch -M main
 
 git remote add origin https://github.com/luckyjoy/robotics_bdd.git >nul 2>&1
 
+
 REM Push to origin main
 echo push -u origin main
 git push -u origin main
@@ -24,9 +26,11 @@ rem curl -u "luckyjoy:11ce1755fa745c0bf522d169a9cac2ca11" -k -X POST "https://lo
 sleep 10
 
 start "" "https://github.com/luckyjoy/robotics_bdd/actions"
-          https://github.com/luckyjoy/robotics_bdd
+
+
 echo.
 
+echo   A new build has been triggred at secured Github server: https://github.com/luckyjoy/robotics_bdd
 echo A new build has been triggred at secured Jenkins server: https://localhost:8443/view/all/builds
 echo.
 
