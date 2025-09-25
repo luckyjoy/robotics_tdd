@@ -4,6 +4,7 @@ temp/
 logs/
 examples/
 tools/
+allure-results/
 
 # VM images & snapshots (HUGE files, never commit)
 *.qcow2

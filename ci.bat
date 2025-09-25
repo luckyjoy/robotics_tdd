@@ -14,9 +14,10 @@ git commit -m "Initial Commit..."
 REM Ensure branch is main
 git branch -M main
 
-git remote add origin https://github.com/luckyjoy/robotics_tdd.git
+git remote add origin https://github.com/luckyjoy/robotics_tdd.git >nul 2>&1
 
 REM Push to origin main
+echo push -u origin main
 git push -u origin main
 
 rem curl -u "luckyjoy:11ce1755fa745c0bf522d169a9cac2ca11" -k -X POST "https://localhost:8443/job/robotics/build"
