@@ -1,15 +1,15 @@
 @echo off
 
-
-rem echo %RANDOM% > test.txt
-REM Add dummy file
+echo %RANDOM% > dummy.txt
+echo Add dummy file dummy.txt
 git add .
 
 REM Commit with message
 rem echo.
 rem echo Git pushed a dummy file for CI Demo
 echo.
-git commit -m "Initial Commit..."
+echo git commit -m "Add a dummy file to trigger Jenkins Webhooks and Github Workflow Actions ..."
+git commit -m ""Add a dummy file to trigger Jenkins/Github CI..."
 
 REM Ensure branch is main
 git branch -M main
