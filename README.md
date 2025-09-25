@@ -1,76 +1,136 @@
-# Robotics Simulation Testing Framework
+# Robot Simulation BDD Testing
 
-This framework provides a **pytest-based solution** for testing robotics applications in a **simulation-only environment** on **Windows 11**. It utilizes the **PyBullet physics engine** to simulate robot behaviors, ensuring that your tests are reproducible and don't require physical hardware.
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Pytest](https://img.shields.io/badge/pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
+![BDD](https://img.shields.io/badge/BDD-FF5733?style=for-the-badge&logo=bdd&logoColor=white)
 
------
+**Author:** Bang Thien Nguyen – ontario1998@gmail.com
 
-## ✨ Key Features
+This project uses **Behavior-Driven Development (BDD)** with `pytest-bdd` to test the functionality and safety of a simple robot simulation. Tests are written in **Gherkin syntax** and designed to be human-readable for both technical and non-technical team members.
 
-  * **Obstacle Avoidance Navigation:** Validate your robot's ability to navigate complex environments and avoid collisions.
-  * **Pick-and-Place:** Test robotic arm manipulation for tasks like picking up and placing objects.
-  * **Sensor Fusion:** Evaluate the performance of sensor data processing, including Kalman filtering.
-  * **Targeted Testing:** Use `pytest -m sim` to run only the simulation-specific tests, allowing for fast, focused feedback.
-
------
-
-## 📂 Project Layout
-
-This project follows a clear structure for easy navigation and maintenance.
-
-```
-src/
-└── simulation/
-    ├── robot_sim.py        # PyBullet wrapper for robot control
-    └── sensors.py          # Sensor data processing and Kalman filter implementation
-tests/
-├── test_navigation.py      # Tests for navigation and obstacle avoidance
-├── test_pick_and_place.py  # Tests for robotic arm manipulation
-└── test_sensor_fusion.py   # Tests for sensor fusion logic
-.github/workflows/
-└── ci.yml                  # GitHub Actions configuration for CI/CD
-Jenkinsfile                 # Jenkins pipeline definition
-```
-
------
+---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-  * **Python 3.9+**
-  * **PyBullet** (physics simulator)
-  * **Pytest** (testing framework)
+- Python 3.8+
+- `pip` for package installation
 
-### Running the Tests
+### Installation
 
-1.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-2.  **Run all simulation tests:**
-    ```bash
-    pytest -m sim
-    ```
-3.  **Generate and view reports (optional):**
-    ```bash
-    pytest --alluredir=allure-results
-    allure serve allure-results --port 8080
-    ```
-    This command generates a detailed report and launches a local server to view it.
+1. Clone the repository:
 
------
+```bash
+git clone <your-repository-url>
+cd robotics_bdd
 
-## ⚙️ Continuous Integration (CI)
+    Install dependencies:
 
-The project includes pre-configured CI pipelines to automate testing and ensure code quality.
+pip install -r requirements.txt
 
-  * **GitHub Actions:** The workflow defined in `.github/workflows/ci.yml` automates linting with `flake8` and runs all simulation tests with code coverage analysis.
-  * **Jenkins:** The `Jenkinsfile` provides a pipeline with stages for code checkout, dependency installation, linting, testing, and publishing reports.
+📋 Framework Structure
 
------
+robotics_bdd/
+├─ README.md
+├─ Jenkinsfile
+├─ allure-results/           # Allure raw results
+├─ conftest.py
+├─ environment.py
+├─ environment.properties
+├─ metadata.json
+├─ pytest.ini
+├─ requirements.txt
+├─ run_all_tests.py
+├─ simulation/
+│  ├─ __init__.py
+│  ├─ robot_sim.py           # Robot simulation logic
+│  └─ sensors.py             # Sensor & Kalman filter logic
+├─ steps/
+│  ├─ __init__.py
+│  ├─ navigation_steps.py
+│  ├─ pick_and_place_steps.py
+│  ├─ safety_steps.py
+│  ├─ sensor_steps.py
+│  └─ walking_steps.py
+└─ features/
+   ├─ navigation.feature
+   ├─ pick_and_place.feature
+   ├─ safety.feature
+   ├─ sensors.feature
+   └─ walking.feature
 
-## 📝 Important Notes
+🏷️ BDD Test Tags
 
-  * This framework is designed for a **simulation-only** workflow and does **not require physical hardware**.
-  * All interactions with hardware are **mocked or simulated** within the PyBullet environment.
-  * It is fully functional for **offline use** on Windows 11.
+    navigation – Tests related to robot navigation
+
+    pick_and_place – Tests for pick and place sequences
+
+    safety – Safety-related tests
+
+    walking – Walking-related tests
+
+    sensors – Sensor-related tests
+
+Example: Run only navigation tests
+
+pytest -m "navigation"
+
+Combine multiple tags:
+
+pytest -m "pick_and_place and safety"
+
+▶️ Running the Tests
+
+Run all tests:
+
+pytest --verbose
+
+Run specific tag:
+
+pytest -m sensors --verbose
+
+📊 HTML Reporting with Allure
+Step 1: Run tests and save results
+
+pytest -m sensors --alluredir=allure-results
+
+Step 2: Serve interactive HTML report
+
+allure serve allure-results
+
+    Opens an interactive report in the browser with test graphs, trends, and details.
+
+Optional: Generate static HTML report
+
+allure generate allure-results -o allure-report --clean
+
+Open the report in browser:
+
+start allure-report\index.html   # Windows
+# or
+open allure-report/index.html    # macOS/Linux
+
+
+📊 HTML Reporting with pytest_html Report
+pytest --html=reports/report.html --self-contained-html --capture=tee-sys
+
+
+📝 Test Features
+Navigation
+
+Tests to ensure the robot moves safely to target positions, avoids obstacles, and follows waypoints.
+Pick and Place
+
+Tests covering object manipulation, arm reach limitations, and pick & place sequences while walking.
+Safety
+
+Comprehensive tests verifying safety protocols, preventing collisions, enforcing limits, and handling unexpected failures.
+Walking
+
+Tests for walking-related behaviors, including speed, posture, and movement transitions.
+Sensor Fusion
+
+Tests for the accuracy and convergence of the Kalman filter, ensuring reliable sensor-based position estimates.
+📄 License
+

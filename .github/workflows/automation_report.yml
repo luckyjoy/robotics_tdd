@@ -38,7 +38,7 @@ jobs:
 
       - name: Run tests and generate HTML report
         # The script now generates the report as index.html in the root
-        run: python run_all_tests.py
+        run: pytest -m navigation --html=reports/report.html --self-contained-html --capture=tee-sys
 
       - name: Upload HTML report artifact
         uses: actions/upload-artifact@v4
