@@ -3,6 +3,7 @@ import pytest
 from simulation.robot_sim import RobotSim
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_full_navigation_to_target():
     """Test that the robot navigates to a target position correctly."""
     sim = RobotSim(gui=False)
@@ -16,6 +17,7 @@ def test_full_navigation_to_target():
     assert sim.get_position()[0] == pytest.approx(target_pos[0]), "Robot did not reach the target position!"
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_full_pick_and_place_sequence():
     """Test the complete pick and place action."""
     sim = RobotSim(gui=False)
@@ -32,6 +34,7 @@ def test_full_pick_and_place_sequence():
     assert final_cube_pos == pytest.approx(end_pos), "Cube did not end up in the correct final position!"
     
 @pytest.mark.sim
+@pytest.mark.action
 def test_full_navigation_obstacle_avoidance():
     """Test that the robot stops before an obstacle during navigation."""
     sim = RobotSim(gui=False)
@@ -47,6 +50,7 @@ def test_full_navigation_obstacle_avoidance():
     assert sim.get_position()[0] == pytest.approx(0.4), "Robot did not stop at the correct position before the obstacle!"
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_walk_and_pick_sequence():
     """Test the combined walking and picking action."""
     sim = RobotSim(gui=False)
@@ -69,6 +73,7 @@ def test_walk_and_pick_sequence():
     assert sim.arm_position == pytest.approx(pick_pos), "Arm did not move to the correct position!"
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_pick_and_place_without_arm():
     """Test that a RuntimeError is raised when trying to pick and place without an arm."""
     sim = RobotSim(gui=False)
@@ -80,6 +85,7 @@ def test_pick_and_place_without_arm():
         sim.pick_and_place_full([0.2, 0, 0.05], [0.8, 0, 0.2])
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_move_arm_below_safe_height():
     """Test that the arm cannot move below a safe height."""
     sim = RobotSim(gui=False)
@@ -99,6 +105,7 @@ def test_move_arm_below_safe_height():
     assert sim.arm_position == pytest.approx([0.0, 0.0, 0.0]), "Arm should not have moved!"
     
 @pytest.mark.sim
+@pytest.mark.action
 def test_robot_walks_while_holding_object():
     """Test a full scenario: the robot picks up a cube and carries it to a new location."""
     sim = RobotSim(gui=False)
@@ -135,6 +142,7 @@ def test_robot_walks_while_holding_object():
 # --- NEW TESTS BELOW ---
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_pick_move_and_place_full_cycle():
     """NEW: Test picking up an object, walking to a new location, and placing it."""
     sim = RobotSim(gui=False)
@@ -168,6 +176,7 @@ def test_pick_move_and_place_full_cycle():
     assert final_cube_pos == pytest.approx(expected_cube_pos), "Cube was not placed at the correct final location!"
     
 @pytest.mark.sim
+@pytest.mark.action
 def test_multi_obstacle_navigation():
     """NEW: Test that the robot navigates and stops at the first of multiple obstacles."""
     sim = RobotSim(gui=False)
@@ -209,6 +218,7 @@ def test_pick_abort_no_object_moved():
 '''
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_pick_abort_no_object_moved():
     """Test that an object's position is not changed if the gripper fails to close."""
     sim = RobotSim(gui=False)
@@ -232,6 +242,7 @@ def test_pick_abort_no_object_moved():
 
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_place_on_elevated_surface():
     """NEW: Test that the robot can move an object to a higher elevation."""
     sim = RobotSim(gui=False)
@@ -257,6 +268,7 @@ def test_place_on_elevated_surface():
     
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_navigation_target_before_obstacle():
     """NEW: Test that the robot correctly reaches a target that is before an obstacle."""
     sim = RobotSim(gui=False)
@@ -272,6 +284,7 @@ def test_navigation_target_before_obstacle():
     assert sim.get_position()[0] == pytest.approx(target_pos[0]), "Robot did not reach the correct position!"
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_sequential_pick_and_drop():
     """NEW: Test the robot's ability to pick up and drop multiple objects in sequence."""
     sim = RobotSim(gui=False)
@@ -310,6 +323,7 @@ def test_sequential_pick_and_drop():
     
     
 @pytest.mark.sim
+@pytest.mark.action
 def test_carry_object_through_obstacle():
     """Test that the robot carrying an object stops before an obstacle."""
     sim = RobotSim(gui=False)
@@ -331,6 +345,7 @@ def test_carry_object_through_obstacle():
     assert sim.gripper_holding == cube_id, "Robot dropped the object unexpectedly!"
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_pick_and_place_two_objects():
     """Test picking and placing two different objects sequentially."""
     sim = RobotSim(gui=False)
@@ -355,6 +370,7 @@ def test_pick_and_place_two_objects():
     assert sim.get_object_position(cube2_id) == pytest.approx([1.2, 0, 0.25])
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_navigation_to_multiple_waypoints():
     """Test that the robot can follow multiple waypoints in sequence."""
     sim = RobotSim(gui=False)
@@ -368,6 +384,7 @@ def test_navigation_to_multiple_waypoints():
         assert pos[0] == pytest.approx(wp[0]), f"Robot did not reach waypoint {wp}"
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_arm_safety_on_multiple_moves():
     """Test that the arm never goes below safe threshold after multiple moves."""
     sim = RobotSim(gui=False)
@@ -380,6 +397,7 @@ def test_arm_safety_on_multiple_moves():
         assert sim.arm_position[2] >= 0.2, f"Arm dropped below safe height at {pos}"
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_pick_fail_then_retry():
     """Test that a failed pick attempt can be retried successfully."""
     sim = RobotSim(gui=False)
@@ -414,6 +432,7 @@ def test_robot_returns_to_origin():
 '''
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_robot_returns_to_origin():
     """Test that the robot can walk away and attempt to return to origin (no backward walking)."""
     sim = RobotSim(gui=False)
@@ -433,6 +452,7 @@ def test_robot_returns_to_origin():
 
 
 @pytest.mark.sim
+@pytest.mark.action
 def test_carry_and_place_on_elevated_target():
     """Test that the robot carries a cube and places it on an elevated surface."""
     sim = RobotSim(gui=False)

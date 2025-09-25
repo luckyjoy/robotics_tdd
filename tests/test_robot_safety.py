@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 from simulation.robot_sim import RobotSim
 
 @pytest.mark.sim
+@pytest.mark.safety
 def test_robot_walking_no_chest_collision():
     sim = RobotSim(gui=False)
     sim.load_robot()
@@ -18,6 +19,7 @@ def test_robot_walking_no_chest_collision():
         assert sim.get_chest_height() > 0.2, "Chest touched the ground!"
 
 @pytest.mark.sim
+@pytest.mark.safety
 def test_robot_move_with_ground_contact():
     sim = RobotSim(gui=False)
     sim.load_robot()
@@ -27,6 +29,7 @@ def test_robot_move_with_ground_contact():
     assert sim.chest_height >= 0.2, "Robot chest too low!"
 
 @pytest.mark.sim
+@pytest.mark.safety
 def test_robot_safe_reverse():
     sim = RobotSim(gui=False)
     sim.load_robot()

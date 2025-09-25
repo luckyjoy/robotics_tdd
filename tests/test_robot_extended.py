@@ -8,6 +8,7 @@ from simulation.robot_sim import RobotSim
 # -------------------------------
 
 @pytest.mark.sim
+@pytest.mark.extend
 def test_navigation_multiple_obstacles():
     sim = RobotSim(gui=False)
     sim.load_robot()
@@ -27,6 +28,7 @@ def test_navigation_multiple_obstacles():
     assert pos[0] < 0.9, "Robot passed through second obstacle!"
 
 @pytest.mark.sim
+@pytest.mark.extend
 def test_navigation_boundary_limit():
     """Test that the robot does not cross the boundary (x <= 1.0)."""
     sim = RobotSim(gui=False)
@@ -41,6 +43,7 @@ def test_navigation_boundary_limit():
 
 
 @pytest.mark.sim
+@pytest.mark.extend
 def test_navigation_continuous_reverse():
     sim = RobotSim(gui=False)
     sim.load_robot()
@@ -57,6 +60,7 @@ def test_navigation_continuous_reverse():
 # -------------------------------
 
 @pytest.mark.sim
+@pytest.mark.extend
 def test_pick_and_drop_cube():
     sim = RobotSim(gui=False)
     sim.load_robot(arm=True)
@@ -83,6 +87,7 @@ def test_pick_and_drop_cube():
     assert sim.get_chest_height() > 0.2, "Chest touched ground during drop!"
 
 @pytest.mark.sim
+@pytest.mark.extend
 def test_pick_beyond_reach():
     sim = RobotSim(gui=False)
     sim.load_robot(arm=True)
@@ -95,6 +100,7 @@ def test_pick_beyond_reach():
         sim.move_arm_to([2.0, 0, 0.05])
 
 @pytest.mark.sim
+@pytest.mark.extend
 def test_pick_while_moving():
     sim = RobotSim(gui=False)
     sim.load_robot(arm=True)
@@ -120,6 +126,7 @@ def test_pick_while_moving():
 # -------------------------------
 
 @pytest.mark.sim
+@pytest.mark.extend
 def test_high_speed_forward_safety():
     sim = RobotSim(gui=False)
     sim.load_robot()
@@ -132,6 +139,7 @@ def test_high_speed_forward_safety():
     assert sim.get_chest_height() > 0.2, "Chest hit ground at high speed!"
 
 @pytest.mark.sim
+@pytest.mark.extend
 def test_uneven_ground_mock():
     sim = RobotSim(gui=False)
     sim.load_robot()
@@ -144,6 +152,7 @@ def test_uneven_ground_mock():
         assert h > 0.2, f"Chest unsafe at height {h}"
 
 @pytest.mark.sim
+@pytest.mark.extend
 def test_reverse_with_obstacle():
     sim = RobotSim(gui=False)
     sim.load_robot()

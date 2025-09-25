@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 from simulation.robot_sim import RobotSim
 
 @pytest.mark.sim
+@pytest.mark.navigation
 def test_robot_navigation_obstacle_avoidance():
     # Navigation test with obstacle
     sim = RobotSim(gui=False)
@@ -26,6 +27,7 @@ def test_robot_navigation_obstacle_avoidance():
     assert pos[0] < 0.6, "Robot passed through obstacle!"
 
 @pytest.mark.sim
+@pytest.mark.navigation
 def test_robot_navigation_reverse():
     # Reverse movement with safety check
     sim = RobotSim(gui=False)
