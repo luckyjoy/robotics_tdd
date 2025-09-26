@@ -3,7 +3,6 @@ import pytest
 from simulation.sensors import KalmanFilter
 
 @pytest.mark.sim
-@pytest.mark.sensors
 def test_kalman_filter_accuracy():
     kf = KalmanFilter(initial_state=0)
 

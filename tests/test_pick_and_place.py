@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 from simulation.robot_sim import RobotSim
 
 @pytest.mark.sim
-@pytest.mark.pick_and_place
 def test_pick_and_place_cube():
     sim = RobotSim(gui=False)
     sim.load_robot(arm=True)
