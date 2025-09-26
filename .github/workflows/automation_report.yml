@@ -1,4 +1,4 @@
-name: Robotics Simulation Framework CI/CD Pipeline
+name: Robotics TDD Simulation CI/CD Pipeline
 
 on:
   push:

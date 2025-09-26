@@ -165,7 +165,6 @@ class TestPickPlaceSuite:
 # -------------------------
 @pytest.mark.sim
 @pytest.mark.actions
-@pytest.mark.navigation
 def test_robot_walk_with_variable_speeds():
     """Test that the robot can move to a target with variable speeds without falling."""
     sim = RobotSim(gui=False)
@@ -224,7 +223,6 @@ def test_robot_pick_abort_and_retry():
 
 @pytest.mark.sim
 @pytest.mark.actions
-@pytest.mark.navigation
 def test_robot_turn_and_navigate_corner():
     """Test robot turns and navigates a corner without hitting walls."""
     sim = RobotSim(gui=False)
