@@ -1,13 +1,31 @@
 @echo off
+rem === Robotics BDD Test Runner and Allure Report Generator ===
 
-rem === General Info and Cleanup ===
-echo Robotics Test-Driven Development (TDD) by Bang Thien Nguyen, ontario1998@gmail.com ...
+rem --- Display Header ---
+echo Running Robotics TDD Simulation Tests...
+echo Author: Bang Thien Nguyen, ontario1998@gmail.com
 echo.
+
+rem --- Cleanup Previous Artifacts (including old results folder) ---
+echo Cleaning up previous test artifacts for a fresh run...
+rmdir /s /q __pycache__ .pytest_cache allure-results 2>nul
 echo.
-echo pytest --alluredir=allure-results
+
+rem --- Execute Tests ---
+echo Running pytest and collecting results into allure-results...
 pytest --alluredir=allure-results
 echo.
-rmdir /s /q __pycache__ .pytest_cache 2>nul
-allure generate allure-results -o allure-report --clean
-echo  allure serve allure-results 
+
+rem --- Add Environment Properties to Results Folder ---
+rem This copies the environment.properties file from the project root into the newly created results folder.
+echo Copying categories.json and environment.properties into the report directory...
+copy supports\windows.properties allure-results\environment.properties >nul
+copy supports\categories.json allure-results\ >nul
+echo.
+
+rem --- Generate and Serve Report (Automatically Opens in Browser) ---
+echo Generating Allure Report and launching in default browser...
 allure serve allure-results
+
+rem --- Script End ---
+echo Allure report process finished.
