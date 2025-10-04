@@ -3,8 +3,9 @@ data/
 temp/
 logs/
 examples/
-tools/
+supports/*.py
 allure-results/
+tmp/
 
 # VM images & snapshots (HUGE files, never commit)
 *.qcow2
@@ -13,9 +14,8 @@ allure-results/
 *.vmdk
 
 # Reports & logs
-reports/
 *.log
-*.json
+
 
 # Python caches
 __pycache__/
@@ -41,3 +41,4 @@ Thumbs.db
 .DS_Store
 *.tmp
 *.swp
+g.bat
