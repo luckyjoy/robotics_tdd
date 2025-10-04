@@ -1,5 +1,5 @@
 🤖 Robotics Test-Driven Development (TDD) Framework
-A robust, test-driven framework for verifying the functionality and safety protocols of a simulated mobile manipulator robot.
+A robust, test-driven framework for verifying the functionality and safety protocols of a simulated mobile manipulator robots.
 
 Author: Bang Thien Nguyen | Contact: ontario1998@gmail.com
 
