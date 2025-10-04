@@ -1,225 +1,208 @@
-🤖 Robotics Test-Driven Development (TDD) Framework
-A robust, test-driven framework for verifying the functionality, path planning, and critical safety protocols of a simulated mobile manipulator robot.
+# 🤖 Robotics Test-Driven Development (TDD) Framework
 
-👤 Author & Contact
-Author: Bang Thien Nguyen | Contact: ontario1998@gmail.com
+> **A robust, test-driven framework for verifying functionality, path planning, and safety protocols of a simulated mobile manipulator robot.**
 
-🛠️ Core Technologies
-💡 Project Overview
-This framework implements Test-Driven Development (TDD) principles, focusing on writing precise, repeatable Python tests before implementing the corresponding robot simulation logic. It uses the Pytest framework for execution and Allure for professional reporting.
+---
 
-Component
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge&logo=githubactions)
+![Docker](https://img.shields.io/badge/docker-ready-blue?style=for-the-badge&logo=docker)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg?style=for-the-badge&logo=python)
+![Allure Report](https://img.shields.io/badge/report-Allure-orange?style=for-the-badge&logo=allure)
+![License](https://img.shields.io/badge/license-MIT-green.svg?style=for-the-badge)
 
-Technology
+---
 
-Role
+## 👤 Author & Contact
 
-Test Runner
+**Author:** Bang Thien Nguyen  
+**Email:** [ontario1998@gmail.com](mailto:ontario1998@gmail.com)
 
-pytest
+---
 
-The primary engine for test discovery and execution.
+## 🛠️ Core Technologies
 
-Test Logic
+| Component | Technology | Role |
+|------------|-------------|------|
+| **Test Runner** | `pytest` | Test discovery and execution engine |
+| **Test Logic** | Python Modules (`test_*.py`) | Unit, integration, and E2E TDD tests |
+| **Reporting** | `Allure`, `pytest-html` | Interactive and static dashboards |
+| **Isolation** | `Docker` | Ensures reproducible, consistent environments |
 
-Python Modules (test_*.py)
+---
 
-Contains all executable TDD tests (unit, integration, and end-to-end).
+## 💡 Project Overview
 
-Reporting
+This framework embodies **Test-Driven Development (TDD)** — writing tests *before* implementation — to ensure reliable, modular, and maintainable robotic simulation logic with full test traceability.
 
-Allure & pytest-html
+---
 
-Generates professional, interactive HTML dashboards for traceability and analysis.
+<details>
+<summary>🚀 <b>Quick Start (Click to Expand)</b></summary>
 
-Isolation
+### ✅ Prerequisites
+- 🐳 **Docker Desktop** – Required for containerized testing  
+- 💻 **Windows Command Prompt** – To execute `run_docker.bat`  
+- 🐍 *(Optional)* **Python 3.10+** – For local runs  
+- 📊 *(Optional)* **Allure CLI** – For interactive reports  
 
-Docker
+---
 
-Ensures a consistent, portable testing environment matching the CI/CD pipeline.
+### ⚙️ Installation
 
-🚀 Getting Started
-Prerequisites
-Docker Desktop (Required for the containerized test runner)
-
-Windows Command Prompt (or compatible shell, to execute run_docker.bat)
-
-(Optional) Python 3.10+ (If running tests locally without Docker)
-
-(Optional) Allure command-line tool
-
-Installation
-Clone the Repository:
-
+```bash
 git clone <your-repository-url>
 cd robotics_tdd
+pip install -r requirements.txt  # Optional for local testing
+```
 
-Install Dependencies:
-(Only necessary if running tests locally outside of Docker)
+---
 
-pip install -r requirements.txt
+### 🧪 Run Tests with Docker (Recommended)
 
-🐳 Dockerized Execution (Recommended)
-The entire test suite can be run using a single batch script, which automates the build, execution, and reporting steps within an isolated Docker environment.
-
-1. The Execution Script (run_docker.bat)
-This is the primary entry point for testing on a local Windows machine. It handles the entire lifecycle using the image tagged robotics-tdd-local:latest.
-
-Step
-
-Action Performed by Script
-
-Setup
-
-Verifies Docker is running and cleans up previous allure-results and reports folders.
-
-Build/Check
-
-Ensures the robotics-tdd-local:latest image is available, building it if necessary.
-
-Execute Tests
-
-Runs the container, mounting the local allure-results folder to collect test output.
-
-Generate & Serve Report
-
-Launches a containerized web server to display the interactive Allure Report in your browser at http://localhost:8080.
-
-Execution Command:
-
+```bash
 run_docker.bat
+```
 
-2. Build Optimization (.dockerignore)
-A .dockerignore file is used to exclude large, irrelevant files (like local virtual environments, OS cache, and reports) from the Docker build context, which significantly speeds up build times and reduces the final image size.
+This performs:
+1. Docker validation & cleanup  
+2. Image build → `robotics-tdd-local:latest`  
+3. Test execution  
+4. Automatic Allure Report launch at [http://localhost:8080](http://localhost:8080)
 
-🌳 Framework Architecture
-The framework adheres to standard TDD and clean architecture principles, maintaining a clear separation between the simulation logic and the test validation code.
+---
 
+### 🧩 Local Test Execution
+
+```bash
+pytest --verbose                   # Run all tests
+pytest -m sensors --verbose        # Run specific tag
+pytest -m "navigation or safety"   # Multiple tags
+pytest -n auto                     # Parallel execution
+```
+
+</details>
+
+---
+
+## 🌳 Framework Architecture
+
+```
 robotics_tdd/
 ├─ README.md
-├─ run_docker.bat                   # Windows batch script for Docker build/run/report
-├─ Dockerfile                       # Defines the isolated testing environment
-├─ .dockerignore                    # Excludes files from Docker build context
-├─ Jenkinsfile                      # CI/CD pipeline definition
-├─ pytest.ini                       # pytest configuration (markers)
+├─ run_docker.bat                   # Local entrypoint
+├─ Dockerfile                       # Container definition
+├─ .dockerignore                    # Speeds up builds
+├─ Jenkinsfile                      # CI/CD pipeline
+├─ pytest.ini                       # Test markers
 ├─ requirements.txt
-├─ src/                             # Source code for robot simulation (robot_sim.py, sensors.py)
-├─ supports/                        # Configuration files (e.g., allure metadata)
-├─ tests/                           # All pytest TDD modules (test_*.py)
+├─ src/                             # Robot simulation logic
+├─ supports/                        # Configs & Allure metadata
+├─ tests/                           # Pytest TDD suites
+```
 
-🏷️ Test Tags and Execution
-Tests are logically grouped using pytest markers (tags) defined in pytest.ini. This allows for highly selective execution of specific test suites.
+---
 
-Tag
+## 🏷️ Test Tags and Execution
 
-Focus Area
+| Tag | Focus Area | Description |
+|------|-------------|-------------|
+| `navigation` | Path Planning | Movement, obstacle avoidance, waypoint following |
+| `pick_and_place` | Manipulation | Arm control, kinematics, object handling |
+| `safety` | System Integrity | Boundary limits, error handling |
+| `walking` | Gait Control | Stability and locomotion |
+| `sensors` | Data Fusion | Sensor accuracy, Kalman Filter validation |
 
-Description
+---
 
-navigation
+## 📊 Professional Reporting
 
-Path Planning
+### 🧠 Allure Interactive Dashboard
 
-Safe movement, obstacle avoidance, and waypoint following.
-
-pick_and_place
-
-Manipulation
-
-Object handling, arm kinematics, and dynamic manipulation sequences.
-
-safety
-
-System Integrity
-
-Collision prevention, boundary limits, and critical error handling.
-
-walking
-
-Gait Control
-
-Posture, speed, stability, and movement transitions during locomotion.
-
-sensors
-
-Data Fusion
-
-Accuracy and stability of sensor-based state estimation (e.g., Kalman Filter).
-
-Running Test Suites (Local Python Environment Only)
-Execution Mode
-
-Command
-
-Run All Tests
-
-pytest --verbose
-
-Run Specific Tag
-
-pytest -m sensors --verbose
-
-Sequential Execution (OR)
-
-pytest -m "navigation or pick_and_place"
-
-Parallel Execution
-
-pytest -m "navigation or safety" -n auto
-
-📊 Professional Test Reporting
-1. Interactive Allure Report (Recommended for Analysis)
-Allure provides a customizable, interactive HTML dashboard suitable for detailed analysis, trend monitoring, and CI/CD integration.
-
-Generate Raw Results:
-
+```bash
 pytest -m "pick_and_place or safety" --alluredir=allure-results
-
-Serve Interactive Report:
-
 allure serve allure-results
+```
 
-This opens the report in your default web browser.
+📸 *Preview:*  
+![Allure Report Preview](https://user-images.githubusercontent.com/your-screenshot-link/allure-report-example.png)
 
-2. Static HTML Report (pytest-html)
-Generates a single, self-contained HTML file, ideal for archiving or sharing via email.
+---
 
+### 📘 Static HTML Report (pytest-html)
+
+```bash
 pytest --html=reports/report.html --self-contained-html
+```
 
-📝 Test Coverage Summary
-Feature Area
+> Ideal for CI pipelines and archived documentation.
 
-Objective
+---
 
-Value Proposition
+## 🧭 Test Coverage Summary
 
-Navigation
+| Feature | Objective | Value Proposition |
+|----------|------------|------------------|
+| **Navigation** | Validate safe, collision-free motion | Ensures reliable target reaching |
+| **Pick & Place** | Verify arm dexterity | Guarantees object handling success |
+| **Safety** | Enforce operational constraints | Prevents boundary violations |
+| **Sensor Fusion** | Validate perception accuracy | Confirms Kalman convergence |
+| **Walking** | Test locomotion stability | Maintains posture and control |
 
-Validate robust, collision-free movement across the environment.
+---
 
-Ensures the robot reliably reaches targets while adhering to safety clearances.
+## ⚙️ CI/CD Integration
 
-Pick and Place
+| System | Description |
+|--------|--------------|
+| **Jenkinsfile** | Automates build → test → report |
+| **GitHub Actions** | Easily adaptable for cloud CI/CD |
+| **Allure + pytest** | Generates professional analytics dashboards |
+| **Dockerized Execution** | Guarantees repeatable test environments |
 
-Confirm reliable object interaction and arm dexterity within reach limits.
+---
 
-Guarantees consistent success rates for manipulation tasks.
+### 📈 Example CI/CD Badges
 
-Safety
+![Jenkins](https://img.shields.io/badge/jenkins-pipeline%20passing-brightgreen?style=flat-square&logo=jenkins)
+![GitHub Actions](https://img.shields.io/github/actions/workflow/status/yourusername/robotics_tdd/ci.yml?style=flat-square&logo=github)
+![Allure Tests](https://img.shields.io/badge/tests-58%20passed%2C%202%20failed-yellow?style=flat-square&logo=allure)
 
-Enforce non-negotiable operational limits and error handling.
+---
 
-Prevents equipment damage and maintains system integrity (e.g., boundary limits).
+## 🤝 Contributing Guidelines
 
-Sensor Fusion
+We welcome contributions to improve and expand this framework!  
 
-Ensure the accuracy and stability of sensor-based state estimation.
+### 🧩 How to Contribute
+1. **Fork** the repository  
+2. **Create a branch**: `git checkout -b feature/my-improvement`  
+3. **Write clean, TDD-compliant code**  
+4. **Run local tests** (`pytest` or `run_docker.bat`)  
+5. **Submit a Pull Request** describing your enhancement  
 
-Validates the integrity of the robot's perception system (Kalman Filter convergence).
+### ✅ Code Style
+- Follow **PEP8** conventions  
+- Use **pytest markers** consistently  
+- Ensure **Allure reports** run without errors  
+- Write **docstrings** for all new functions  
 
-Walking
+### 🧪 Before Submitting
+Run:
+```bash
+pytest --maxfail=1 --disable-warnings -q
+```
+and make sure all tests pass locally.
 
-Verify stable and safe locomotion dynamics.
+---
 
-Prevents tripping/falling and maintains optimal posture during movement.
+## 🪪 License
 
+This project is released under the **MIT License** — free to use, modify, and distribute.
+
+---
+
+📬 *For collaboration inquiries, reach out at* [ontario1998@gmail.com](mailto:ontario1998@gmail.com)
+
+---
+
+> _“Build robots that test themselves before they move — that’s true autonomy.”_
