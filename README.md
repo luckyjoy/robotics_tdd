@@ -50,7 +50,7 @@ This framework embodies **Test-Driven Development (TDD)** — writing tests *bef
 ### ⚙️ Installation
 
 ```bash
-git clone <your-repository-url>
+git clone git clone https://github.com/luckyjoy/robotics_tdd.git
 cd robotics_tdd
 pip install -r requirements.txt  # Optional for local testing
 ```
