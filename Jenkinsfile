@@ -8,18 +8,16 @@ pipeline {
         ALLURE_REPORT_DIR = "allure-report-latest"
         ALLURE_HISTORY_DIR = "C:\\ProgramData\\Jenkins\\.jenkins\\jobs\\robotics_tdd\\allure-history"
         PATH = "${env.PATH};${env.USERPROFILE}\\AppData\\Roaming\\npm"
-        DOCKER_IMAGE = "python:3.10" // Use a public base image to avoid local image errors
+        DOCKER_IMAGE = "python:3.10-slim" // Corrected to use the slim image base for robustness
     }
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
-        timestamps()
         disableConcurrentBuilds()
-        // ansiColor('xterm') // enable if you have the plugin
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Source Code') {
             steps {
                 git url: 'https://github.com/luckyjoy/robotics_tdd.git', branch: 'main'
             }
@@ -59,40 +57,36 @@ pipeline {
             }
         }
 
-        // PowerShell avoids the CMD setlocal recursion issue and pulls the image if needed.
-        stage('Run Linux Tests in Docker (PowerShell)') {
-            steps {
-                catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
-                    powershell '''
-                    $ErrorActionPreference = "Stop"
+		stage('Run Linux Tests in Docker (PowerShell)') {
+			steps {
+				catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+					powershell '''
+					$ErrorActionPreference = "Stop"
 
-                    Write-Host "========================================================="
-                    Write-Host "Checking Docker service and version..."
-                    docker version | Out-String | Write-Host
-                    Write-Host "========================================================="
+					Write-Host "========================================================="
+					Write-Host "Checking Docker service and version..."
+					docker version | Out-String | Write-Host
+					Write-Host "========================================================="
 
-                    # Ensure results dir exists/clean
-                    if (Test-Path "$env:WORKSPACE\\linux-allure-results") { Remove-Item -Recurse -Force "$env:WORKSPACE\\linux-allure-results" }
-                    New-Item -ItemType Directory -Force -Path "$env:WORKSPACE\\linux-allure-results" | Out-Null
+					# Ensure results dir exists/clean
+					if (Test-Path "$env:WORKSPACE\\linux-allure-results") { Remove-Item -Recurse -Force "$env:WORKSPACE\\linux-allure-results" }
+					New-Item -ItemType Directory -Force -Path "$env:WORKSPACE\\linux-allure-results" | Out-Null
 
-                    Write-Host "========================================================="
-                    Write-Host "Running Robotics TDD Docker Simulation Tests..."
-                    Write-Host "Docker Image: $env:DOCKER_IMAGE"
-                    Write-Host "========================================================="
+					Write-Host "========================================================="
+					Write-Host "Running Robotics TDD Docker Simulation Tests..."
+					Write-Host "Docker Image: $env:DOCKER_IMAGE"
+					Write-Host "========================================================="
 
-                    # Pull if not already present
-                    if (-not (docker image inspect $env:DOCKER_IMAGE > $null 2>&1)) {
-                        docker pull $env:DOCKER_IMAGE
-                    }
+					# CORRECTED: Simply pull the image. Docker handles the inspection/caching without PowerShell erroring.
+					docker pull $env:DOCKER_IMAGE
 
-                    docker run --rm -v "$env:WORKSPACE:/tests" -w /tests $env:DOCKER_IMAGE bash -lc \
-                        "pip install -q pytest allure-pytest && pytest -m navigation --alluredir=/tests/linux-allure-results"
-                    '''
-                }
-            }
-        }
-        
-        // New Stage: Adds categories.json, executor.json, and environment.properties to the Allure results directory.
+					docker run --rm -v "$env:WORKSPACE:/tests" -w /tests $env:DOCKER_IMAGE bash -lc \
+						"pip install -q pytest allure-pytest && pytest -m navigation --alluredir=/tests/linux-allure-results"
+					'''
+				}
+			}
+		}
+
         stage('Add Allure Metadata') {
             steps {
                 script {
