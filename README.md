@@ -124,7 +124,7 @@ allure serve allure-results
 ```
 
 📸 *Preview:*  
-![Allure Report Preview](https://user-images.githubusercontent.com/your-screenshot-link/allure-report-example.png)
+![Allure Report Preview](https://luckyjoy.github.io/robotics_tdd/latest/ubuntu-latest/)
 
 ---
 
@@ -158,6 +158,13 @@ pytest --html=reports/report.html --self-contained-html
 | **GitHub Actions** | Easily adaptable for cloud CI/CD |
 | **Allure + pytest** | Generates professional analytics dashboards |
 | **Dockerized Execution** | Guarantees repeatable test environments |
+
+---
+
+**📁 Repository:** *Robotics TDD Framework*  
+**🧠 Approach:** Test-Driven Development (TDD)  
+**📈 Reporting:** Allure + pytest-html  
+**⚙️ CI/CD Integration:** Jenkins/Github + Docker  
 
 ---
 
