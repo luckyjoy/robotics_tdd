@@ -10,7 +10,6 @@ on:
   schedule:
     - cron: '0 7 * * *'
 
-# CRITICAL FIX: Set minimal global permissions to block the automatic Pages deployment
 permissions:
   contents: read
   actions: read
@@ -28,7 +27,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     permissions:
-      contents: write # Needed for artifact upload
+      contents: write 
 
     steps:
   
@@ -36,6 +35,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # FIX: Ensure all files, including test folders (Exit Code 3), are downloaded
+          submodules: true
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -55,7 +57,7 @@ jobs:
         shell: bash
 
       - name: Copy platform-specific support files
-        # FIX 1: Explicitly use bash shell for cross-platform file operations
+        # FIX: Ensure bash shell is used for cross-platform compatibility (Exit Code 1 fix)
         shell: bash
         run: |
           echo "Copying supports files for $RUNNER_OS..."
@@ -82,11 +84,11 @@ jobs:
         shell: bash
         run: |
           echo "Running pytest navigation tests..."
-          # FIX 2: Use standard output redirection for reliability, ensuring the job fails if tests fail
+          # FIX: Use standard output redirection for cross-platform reliability
           pytest -m navigation --alluredir=allure-results > pytest.log 2>&1
 
       - name: Verify Allure Results Exist
-        # FIX 3: Explicitly fail the job if no results were generated (to prevent "0 test cases" error)
+        # FIX: Explicitly fail the job if no results were generated (Allure "unknown" fix)
         shell: bash
         run: |
           if [ -z "$(ls -A allure-results)" ]; then
@@ -113,7 +115,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Step to clone the existing gh-pages content to merge with new reports
       - name: Checkout gh-pages history
         uses: actions/checkout@v4
         with:
@@ -167,10 +168,8 @@ jobs:
             VERSIONED_REPORT_DIR="allure-report-${BUILD_NUMBER}-${OS}"
             mkdir -p "$VERSIONED_REPORT_DIR"
             
-            # Generate the new report
             allure generate "allure-results/$OS" --output "$VERSIONED_REPORT_DIR" --clean
 
-            # Copy NEW report to versioned and latest folders
             mkdir -p "$SITE_DIR/$BUILD_NUMBER/$OS"
             cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/$BUILD_NUMBER/$OS/"
             
@@ -222,7 +221,6 @@ jobs:
           echo "</ul></body></html>" >> "$SITE_DIR/index.html"
           
       - name: Deploy to GitHub Pages
-        # Use force_orphan: true to completely replace gh-pages with the complete site
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
