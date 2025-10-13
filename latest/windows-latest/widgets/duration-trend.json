@@ -1,1 +1,1 @@
-[{"buildOrder":75,"reportUrl":"${env.BUILD_URL}artifact/${ALLURE_REPORT_DIR}/index.html","data":{"duration":49}},{"data":{"duration":62}},{"data":{"duration":47}}]
+[{"buildOrder":76,"reportUrl":"https://luckyjoy.github.io/robotics_tdd/latest/windows-latest/","data":{"duration":76}}]

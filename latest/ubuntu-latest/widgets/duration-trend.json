@@ -1,1 +1,1 @@
-[{"buildOrder":75,"reportUrl":"${env.BUILD_URL}artifact/${ALLURE_REPORT_DIR}/index.html","data":{"duration":20}},{"data":{"duration":20}},{"data":{"duration":19}}]
+[{"buildOrder":76,"reportUrl":"https://luckyjoy.github.io/robotics_tdd/latest/ubuntu-latest/","data":{"duration":20}}]
