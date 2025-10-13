@@ -1,260 +1,242 @@
-[cite_start]name: Robotics TDD Simulation CI/CD [cite: 1]
+name: Robotics TDD Simulation CI/CD
 
 on:
   push:
     branches:
-      - [cite_start]main [cite: 1]
+      - main
   pull_request:
     branches:
-      - [cite_start]main [cite: 1]
+      - main
   schedule:
-    - [cite_start]cron: '0 7 * * *' [cite: 1]
+    - cron: '0 7 * * *'
 
-# CRITICAL FIX: Set global permissions to read-only AND explicitly set 'pages: none' 
-# to guarantee that the built-in GitHub Pages workflow is not triggered.
+# CRITICAL FIX: Set minimal global permissions to block the automatic Pages deployment
 permissions:
-  [cite_start]contents: read # Default to read [cite: 2]
-  [cite_start]actions: read [cite: 2]
-  [cite_start]checks: read [cite: 2]
-  [cite_start]pull-requests: read [cite: 2]
-  [cite_start]statuses: read [cite: 2]
-  [cite_start]pages: none # Ensures the built-in 'pages build and deployment' job is blocked [cite: 2]
-  [cite_start]id-token: none # Blocks OIDC which can be an indirect trigger [cite: 2]
+  contents: read
+  actions: read
+  checks: read
+  pull-requests: read
+  statuses: read
+  pages: none 
+  id-token: none 
 
 jobs:
   run-tests:
-    [cite_start]runs-on: ${{ matrix.os }} [cite: 2]
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        [cite_start]os: [ubuntu-latest, windows-latest] [cite: 2]
+        os: [ubuntu-latest, windows-latest]
 
     permissions:
-      [cite_start]contents: write # Overriding global 'read' to 'write' for artifact upload [cite: 2]
+      contents: write # Needed for artifact upload
 
     steps:
   
       - name: Checkout repository
-        [cite_start]uses: actions/checkout@v4 [cite: 3]
+        uses: actions/checkout@v4
         with:
-          [cite_start]fetch-depth: 0 [cite: 3]
+          fetch-depth: 0
 
       - name: Set up Python
-        [cite_start]uses: actions/setup-python@v5 [cite: 3]
+        uses: actions/setup-python@v5
         with:
-          [cite_start]python-version: '3.10' [cite: 3]
+          python-version: '3.10'
 
       - name: Install Python dependencies
         run: |
-          echo "Installing pytest allure-pytest..." [cite: 4]
-          pip install pytest allure-pytest [cite: 4]
+          echo "Installing pytest allure-pytest..."
+          pip install pytest allure-pytest
 
       - name: Clean previous allure-results
         run: |
-          echo "Cleaning allure-results folder..." [cite: 5]
-          if [ -d "allure-results" ]; [cite: 5]
-          then rm -rf allure-results; fi [cite: 6]
-        [cite_start]shell: bash [cite: 6]
+          echo "Cleaning allure-results folder..."
+          if [ -d "allure-results" ];
+          then rm -rf allure-results; fi
+        shell: bash
 
       - name: Copy platform-specific support files
+        # FIX 1: Explicitly use bash shell for cross-platform file operations
+        shell: bash
         run: |
-          echo "Copying supports files for $RUNNER_OS..." [cite: 7]
-          mkdir -p allure-results [cite: 7]
+          echo "Copying supports files for $RUNNER_OS..."
+          mkdir -p allure-results
           
-          # 1. Copy categories.json (required for custom test failure categorization)
-          [cite_start]cp supports/categories.json allure-results/ 2>/dev/null || [cite: 7]
-          [cite_start]echo "No categories.json file found" [cite: 8]
+          # 1. Copy categories.json
+          cp supports/categories.json allure-results/ 2>/dev/null ||
+          echo "No categories.json file found"
 
-          # 2. Copy environment properties based on OS, renaming to environment.properties
-          [cite_start]if [[ "$RUNNER_OS" == "Linux" ]]; [cite: 8]
+          # 2. Copy environment properties based on OS
+          if [[ "$RUNNER_OS" == "Linux" ]];
           then
-            [cite_start]echo "Copying Ubuntu environment properties..." [cite: 9]
-            [cite_start]cp supports/ubuntu.properties allure-results/environment.properties 2>/dev/null || [cite: 9]
-          [cite_start]echo "No Ubuntu environment file found" [cite: 10]
-          [cite_start]elif [[ "$RUNNER_OS" == "Windows" ]]; [cite: 10]
+            echo "Copying Ubuntu environment properties..."
+            cp supports/ubuntu.properties allure-results/environment.properties 2>/dev/null ||
+          echo "No Ubuntu environment file found"
+          elif [[ "$RUNNER_OS" == "Windows" ]];
           then
-            [cite_start]echo "Copying Windows environment properties..." [cite: 11]
-            # Using cp command here is safe because the shell for the step is bash [cite: 11]
-            [cite_start]cp supports/windows.properties allure-results/environment.properties 2>/dev/null || [cite: 11]
-          [cite_start]echo "No Windows environment file found" [cite: 12]
+            echo "Copying Windows environment properties..."
+            cp supports/windows.properties allure-results/environment.properties 2>/dev/null ||
+          echo "No Windows environment file found"
           fi
-        # FIX: Ensure bash shell is used for cross-platform compatibility
-        shell: bash 
 
       - name: Run tests
+        shell: bash
         run: |
-          echo "Running pytest navigation tests..." 
-          # FIX: Change to simple output redirection for robustness on Windows
+          echo "Running pytest navigation tests..."
+          # FIX 2: Use standard output redirection for reliability, ensuring the job fails if tests fail
           pytest -m navigation --alluredir=allure-results > pytest.log 2>&1
-        [cite_start]shell: bash [cite: 14]
 
-      # FIX: Added step to verify results to prevent "Allure Report unknown" error
       - name: Verify Allure Results Exist
+        # FIX 3: Explicitly fail the job if no results were generated (to prevent "0 test cases" error)
+        shell: bash
         run: |
           if [ -z "$(ls -A allure-results)" ]; then
             echo "Error: allure-results directory is empty. Pytest likely failed or found no tests."
             exit 1
           fi
-        shell: bash
 
       - name: Upload Allure Results
-        [cite_start]uses: actions/upload-artifact@v4 [cite: 14]
+        uses: actions/upload-artifact@v4
         with:
-          [cite_start]name: allure-results-${{ matrix.os }} [cite: 14]
-          [cite_start]path: allure-results [cite: 14]
-          [cite_start]retention-days: 7 [cite: 14]
+          name: allure-results-${{ matrix.os }}
+          path: allure-results
+          retention-days: 7
 
   deploy-pages:
-    [cite_start]runs-on: ubuntu-latest [cite: 14]
-    [cite_start]needs: run-tests [cite: 14]
+    runs-on: ubuntu-latest
+    needs: run-tests
     permissions:
-      [cite_start]contents: write # Only contents: write [cite: 15] is strictly needed for the custom deployment (peaceiris)
+      contents: write 
 
     steps:
       - name: Checkout repository (Primary branch)
-        [cite_start]uses: actions/checkout@v4 [cite: 15]
+        uses: actions/checkout@v4
         with:
-          [cite_start]fetch-depth: 0 [cite: 15]
+          fetch-depth: 0
 
-      # CRITICAL FIX 1: Checkout the existing gh-pages content into a temporary folder to preserve history
+      # Step to clone the existing gh-pages content to merge with new reports
       - name: Checkout gh-pages history
-        [cite_start]uses: actions/checkout@v4 [cite: 15]
+        uses: actions/checkout@v4
         with:
-  
-          [cite_start]repository: ${{ github.repository }} [cite: 16]
-          [cite_start]ref: gh-pages [cite: 16]
-          [cite_start]path: _history [cite: 16]
-          [cite_start]token: ${{ secrets.GITHUB_TOKEN }} [cite: 16]
-          # Set clean to false just in case, though the path is new [cite: 16]
-          [cite_start]clean: false [cite: 16]
+          repository: ${{ github.repository }}
+          ref: gh-pages
+          path: _history
+          token: ${{ secrets.GITHUB_TOKEN }}
+          clean: false
 
       - name: Download Linux Allure Results
         uses: actions/download-artifact@v4
- 
         with:
-          [cite_start]name: allure-results-ubuntu-latest [cite: 17]
-          [cite_start]path: allure-results/ubuntu-latest [cite: 17]
+          name: allure-results-ubuntu-latest
+          path: allure-results/ubuntu-latest
 
       - name: Download Windows Allure Results
-        [cite_start]uses: actions/download-artifact@v4 [cite: 17]
+        uses: actions/download-artifact@v4
         with:
-          [cite_start]name: allure-results-windows-latest [cite: 17]
-          [cite_start]path: allure-results/windows-latest [cite: 17]
+          name: allure-results-windows-latest
+          path: allure-results/windows-latest
 
       - name: Setup Allure CLI
         run: |
-          echo "Setting up Allure CLI..." [cite: 18]
-          ALLURE_VERSION=2.25.0 [cite: 18]
-          curl -L -o allure.tgz "https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/${ALLURE_VERSION}/allure-commandline-${ALLURE_VERSION}.tgz" [cite: 18]
-          mkdir -p allure-commandline [cite: 18]
-          tar -xzf allure.tgz -C allure-commandline --strip-components 1 [cite: 18]
-          echo "$PWD/allure-commandline/bin" >> $GITHUB_PATH [cite: 18]
+          echo "Setting up Allure CLI..."
+          ALLURE_VERSION=2.25.0
+          curl -L -o allure.tgz "https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/${ALLURE_VERSION}/allure-commandline-${ALLURE_VERSION}.tgz"
+          mkdir -p allure-commandline
+          tar -xzf allure.tgz -C allure-commandline --strip-components 1
+          echo "$PWD/allure-commandline/bin" >> $GITHUB_PATH
 
       - name: Generate Allure Reports
         run: |
-          echo "Generating Allure reports..." [cite: 19]
-          BUILD_NUMBER=${GITHUB_RUN_NUMBER} [cite: 19]
-          SITE_DIR="site" [cite: 19]
-          HISTORY_DIR="_history" [cite: 19]
+          echo "Generating Allure reports..."
+          BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+          SITE_DIR="site"
+          HISTORY_DIR="_history"
           
-          # 1. Create the local SITE_DIR
-          [cite_start]if [ -d "$SITE_DIR" ]; [cite: 19]
-          [cite_start]then rm -rf "$SITE_DIR"; fi [cite: 20]
-          [cite_start]mkdir -p "$SITE_DIR/latest" [cite: 20]
+          # 1. Prepare site directory
+          if [ -d "$SITE_DIR" ];
+          then rm -rf "$SITE_DIR"; fi
+          mkdir -p "$SITE_DIR/latest"
           
-          # CRITICAL FIX 2: Copy historical reports from the cloned gh-pages branch into the new site directory
-          [cite_start]echo "Copying historical builds from $HISTORY_DIR to $SITE_DIR..." [cite: 20]
-          # This copies all folders with numeric names (the build numbers, e.g., 160, 161)
-        
-          # It ignores files like index.html or folders like 'latest' from the old history [cite: 21]
-          [cite_start]find "$HISTORY_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" -exec cp -r {} "$SITE_DIR/" \; [cite: 21]
-          [cite_start]2>/dev/null || echo "No numeric history folders to copy." [cite: 22]
+          # 2. Copy historical reports
+          echo "Copying historical builds from $HISTORY_DIR to $SITE_DIR..."
+          find "$HISTORY_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" -exec cp -r {} "$SITE_DIR/" \;
+          2>/dev/null || echo "No numeric history folders to copy."
 
-          # 2. Generate NEW reports and merge them into the site directory
-          [cite_start]for OS in ubuntu-latest windows-latest; [cite: 22]
+          # 3. Generate NEW reports and merge
+          for OS in ubuntu-latest windows-latest;
           do
-            [cite_start]VERSIONED_REPORT_DIR="allure-report-${BUILD_NUMBER}-${OS}" [cite: 23]
-            [cite_start]mkdir -p "$VERSIONED_REPORT_DIR" [cite: 23]
+            VERSIONED_REPORT_DIR="allure-report-${BUILD_NUMBER}-${OS}"
+            mkdir -p "$VERSIONED_REPORT_DIR"
             
             # Generate the new report
-            [cite_start]allure generate "allure-results/$OS" --output "$VERSIONED_REPORT_DIR" --clean [cite: 23]
+            allure generate "allure-results/$OS" --output "$VERSIONED_REPORT_DIR" --clean
 
-            # Copy the NEW report into the site directory (this is the current build)
-    
-            [cite_start]mkdir -p "$SITE_DIR/$BUILD_NUMBER/$OS" [cite: 24]
-            [cite_start]cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/$BUILD_NUMBER/$OS/" [cite: 24]
+            # Copy NEW report to versioned and latest folders
+            mkdir -p "$SITE_DIR/$BUILD_NUMBER/$OS"
+            cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/$BUILD_NUMBER/$OS/"
             
-            # Update 'latest' folder with NEW report
-            [cite_start]mkdir -p "$SITE_DIR/latest/$OS" [cite: 24]
-            [cite_start]cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/latest/$OS/" [cite: 24]
+            mkdir -p "$SITE_DIR/latest/$OS"
+            cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/latest/$OS/"
 
             # Update build info
- 
-            [cite_start]date -u +"%Y-%m-%d %H:%M:%S UTC" > "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt" [cite: 25]
-            [cite_start]cp "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt" "$SITE_DIR/latest/$OS/build-info.txt" [cite: 25]
-          [cite_start]done [cite: 25]
+            date -u +"%Y-%m-%d %H:%M:%S UTC" > "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt"
+            cp "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt" "$SITE_DIR/latest/$OS/build-info.txt"
+          done
 
-      - name: Rebuild index.html (Now comprehensive as all history is local)
+      - name: Rebuild index.html
         run: |
-          SITE_DIR="site" [cite: 26]
-          echo "<html><head><title>Allure Reports History</title><style>body { font-family: sans-serif; }</style></head><body><h1>Allure Reports History</h1><hr><ul>" > "$SITE_DIR/index.html" [cite: 26]
+          SITE_DIR="site"
+          echo "<html><head><title>Allure Reports History</title><style>body { font-family: sans-serif; }</style></head><body><h1>Allure Reports History</h1><hr><ul>" > "$SITE_DIR/index.html"
 
           # 1. Latest reports
-          [cite_start]for OS in ubuntu-latest windows-latest; [cite: 26]
+          for OS in ubuntu-latest windows-latest;
           do
-            [cite_start]if [ -d "$SITE_DIR/latest/$OS" ]; [cite: 27]
+            if [ -d "$SITE_DIR/latest/$OS" ];
           then
-              [cite_start]TS=$(cat "$SITE_DIR/latest/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)") [cite: 28]
-              [cite_start]echo "<li><strong><a href='latest/$OS/'>Latest Report ($OS)</a></strong> - Last run: ${TS}</li>" >> "$SITE_DIR/index.html" [cite: 28]
-            [cite_start]fi [cite: 28]
-          [cite_start]done [cite: 28]
+              TS=$(cat "$SITE_DIR/latest/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)")
+              echo "<li><strong><a href='latest/$OS/'>Latest Report ($OS)</a></strong> - Last run: ${TS}</li>" >> "$SITE_DIR/index.html"
+            fi
+          done
           
           echo "</ul><hr><h2>All Historical Builds</h2><ul>" >> "$SITE_DIR/index.html"
          
-  
-          # 2. Historical reports (Guaranteed to find them now in the SITE_DIR) [cite: 29]
-          # Use find for reliable directory detection of numeric folders [cite: 29]
-          [cite_start]HISTORICAL_BUILDS=$(find "$SITE_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" | xargs -n 1 basename | sort -nr) [cite: 29]
+          # 2. Historical reports
+          HISTORICAL_BUILDS=$(find "$SITE_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" | xargs -n 1 basename | sort -nr)
           
-          [cite_start]if [ -z "$HISTORICAL_BUILDS" ]; [cite: 29]
+          if [ -z "$HISTORICAL_BUILDS" ];
           then
-              [cite_start]echo "<p>No historical builds found.</p>" >> "$SITE_DIR/index.html" [cite: 30]
+              echo "<p>No historical builds found.</p>" >> "$SITE_DIR/index.html"
           else
-              [cite_start]for BUILD in $HISTORICAL_BUILDS; [cite: 30]
+              for BUILD in $HISTORICAL_BUILDS;
           do
-                [cite_start]for OS in ubuntu-latest windows-latest; [cite: 31]
+                for OS in ubuntu-latest windows-latest;
           do
-                  [cite_start]if [ -d "$SITE_DIR/$BUILD/$OS" ]; [cite: 32]
+                  if [ -d "$SITE_DIR/$BUILD/$OS" ];
           then
-                    [cite_start]TS=$(cat "$SITE_DIR/$BUILD/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)") [cite: 33]
-                    [cite_start]echo "<li><a href='${BUILD}/${OS}/'>Build #${BUILD} ($OS)</a> - ${TS}</li>" >> "$SITE_DIR/index.html" [cite: 33]
-                  [cite_start]fi [cite: 33]
+                    TS=$(cat "$SITE_DIR/$BUILD/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)")
+                    echo "<li><a href='${BUILD}/${OS}/'>Build #${BUILD} ($OS)</a> - ${TS}</li>" >> "$SITE_DIR/index.html"
+                  fi
                 done
-            
-          [cite_start]done [cite: 34]
+          done
           fi
 
-          [cite_start]echo "</ul></body></html>" >> "$SITE_DIR/index.html" [cite: 34]
+          echo "</ul></body></html>" >> "$SITE_DIR/index.html"
           
-      # CRITICAL FIX 3: Deploy the full, comprehensive 'site' folder to gh-pages
-      - name: Deploy to GitHub Pages (Final Robust Fix)
-        [cite_start]uses: peaceiris/actions-gh-pages@v3 [cite: 34]
+      - name: Deploy to GitHub Pages
+        # Use force_orphan: true to completely replace gh-pages with the complete site
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          [cite_start]github_token: ${{ secrets.GITHUB_TOKEN }} [cite: 35]
-    
-          [cite_start]publish_dir: site [cite: 35]
-          [cite_start]publish_branch: gh-pages [cite: 35]
-          # Use force_orphan: true to completely replace the gh-pages branch content 
-          # with the contents of the local 'site' directory, which is now complete. [cite: 35]
-          [cite_start]force_orphan: true [cite: 36]
-          [cite_start]commit_message: "Deploy Allure Reports - Build ${{ github.run_number }}" [cite: 36]
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: site
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: "Deploy Allure Reports - Build ${{ github.run_number }}"
 
-      # The final step for adding badges remains the same
       - name: Add workflow badges to summary
         run: |
-          REPO_NAME=${GITHUB_REPOSITORY##*/} [cite: 37]
-          OWNER=${GITHUB_REPOSITORY_OWNER} [cite: 37]
+          REPO_NAME=${GITHUB_REPOSITORY##*/}
+          OWNER=${GITHUB_REPOSITORY_OWNER}
 
-          [cite_start]echo "### Robotics TDD Simulation CI/CD" >> $GITHUB_STEP_SUMMARY [cite: 37]
-          [cite_start]echo "[![Ubuntu Latest Report](https://img.shields.io/badge/Ubuntu-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/ubuntu-latest/)" >> $GITHUB_STEP_SUMMARY [cite: 37]
-          [cite_start]echo "[![Windows Latest Report](https://img.shields.io/badge/Windows-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/windows-latest/)" >> $GITHUB_STEP_SUMMARY [cite: 37]
-          [cite_start]echo "[![Report History](https://img.shields.io/badge/All-Builds-green)](https://${OWNER}.github.io/${REPO_NAME}/)" >> $GITHUB_STEP_SUMMARY [cite: 37]
+          echo "### Robotics BDD Simulation CI/CD" >> $GITHUB_STEP_SUMMARY
+          echo "[![Ubuntu Latest Report](https://img.shields.io/badge/Ubuntu-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/ubuntu-latest/)" >> $GITHUB_STEP_SUMMARY
+          echo "[![Windows Latest Report](https://img.shields.io/badge/Windows-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/windows-latest/)" >> $GITHUB_STEP_SUMMARY
+          echo "[![Report History](https://img.shields.io/badge/All-Builds-green)](https://${OWNER}.github.io/${REPO_NAME}/)" >> $GITHUB_STEP_SUMMARY
