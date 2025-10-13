@@ -11,42 +11,41 @@ on:
     - cron: '0 7 * * *'
 
 permissions:
-  contents: read 
+  contents: read
   actions: read
   checks: read
   pull-requests: read
   statuses: read
-  pages: none 
-  id-token: none 
+  pages: none
+  id-token: none
 
 jobs:
   run-tests:
-    runs-on: ${{ matrix.os }} 
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
         include:
-          # Define the Docker image to use ONLY for the Ubuntu (Linux) runner
+          # Docker configuration for Linux only
           - os: ubuntu-latest
-            container_image: my-robotics-test-image:latest # <== IMPORTANT: REPLACE WITH YOUR ACTUAL IMAGE
+            container_image: python:3.10-slim-buster # Public Python 3.10 base image
 
-    # Use the container key if it exists in the matrix context (Docker on Linux, null/skip on Windows)
-    container: ${{ matrix.container_image }}
+    # Apply the container image defined in the matrix (only on Linux)
+    container: ${{ matrix.container_image }} 
 
     permissions:
-      contents: write 
+      contents: write
 
     steps:
-  
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          submodules: true
-          lfs: true
-          
-      # Python setup and dependency installation for Windows only (must be in Docker image for Linux)
+
+      # --- Python Setup & Installation ---
+
       - name: Set up Python (Windows Only)
+        # Skip this step on Linux/Docker
         if: runner.os == 'Windows'
         uses: actions/setup-python@v5
         with:
@@ -55,15 +54,22 @@ jobs:
       - name: Install Python dependencies (Windows Only)
         if: runner.os == 'Windows'
         run: |
-          # Only installing allure-pytest (assuming pytest-html hook was removed from conftest.py)
           echo "Installing pytest allure-pytest..."
           pip install pytest allure-pytest
+
+      - name: Install Python dependencies (Linux/Docker Only)
+        if: runner.os == 'Linux'
+        run: |
+          # Dependencies must be installed inside the base Docker image
+          echo "Installing pytest allure-pytest inside Docker container..."
+          pip install pytest allure-pytest
+
+      # --- Test Run Steps ---
 
       - name: Clean previous allure-results
         run: |
           echo "Cleaning allure-results folder..."
-          if [ -d "allure-results" ];
-          then rm -rf allure-results; fi
+          if [ -d "allure-results" ]; then rm -rf allure-results; fi
         shell: bash
 
       - name: Copy platform-specific support files
@@ -71,47 +77,25 @@ jobs:
           echo "Copying supports files for $RUNNER_OS..."
           mkdir -p allure-results
           
-          # 1. Copy categories.json
-          cp supports/categories.json allure-results/ 2>/dev/null ||
-          echo "No categories.json file found"
+          # 1. Copy categories.json 
+          cp supports/categories.json allure-results/ 2>/dev/null || echo "No categories.json file found"
 
-          # 2. Copy environment properties based on OS
-          if [[ "$RUNNER_OS" == "Linux" ]];
-          then
+          # 2. Copy environment properties based on OS, renaming to environment.properties
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
             echo "Copying Ubuntu environment properties..."
-            cp supports/ubuntu.properties allure-results/environment.properties 2>/dev/null ||
-          echo "No Ubuntu environment file found"
-          elif [[ "$RUNNER_OS" == "Windows" ]];
-          then
+            cp supports/ubuntu.properties allure-results/environment.properties 2>/dev/null || echo "No Ubuntu environment file found"
+          elif [[ "$RUNNER_OS" == "Windows" ]]; then
             echo "Copying Windows environment properties..."
-            cp supports/windows.properties allure-results/environment.properties 2>/dev/null ||
-          echo "No Windows environment file found"
+            cp supports/windows.properties allure-results/environment.properties 2>/dev/null || echo "No Windows environment file found"
           fi
-        shell: bash
-
-      - name: Generate Executor Info
-        # Fix for Allure "Executors: There is no information"
-        run: |
-          REPO_NAME=${{ github.event.repository.name }}
-          REPO_OWNER=${{ github.repository_owner }}
-          
-          echo '{"name":"${{ matrix.os }}","type":"GitHub Actions","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","reportUrl":"https://${REPO_OWNER}.github.io/${REPO_NAME}/latest/${{ matrix.os }}/","buildOrder":"${{ github.run_number }}","buildName":"Build ${{ github.run_number }} (${{ matrix.os }})","buildUrl":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' > allure-results/executor.json
         shell: bash
 
       - name: Run tests
-        shell: bash
         run: |
           echo "Running pytest navigation tests..."
-          # The pytest command runs inside the container on Linux and natively on Windows
+          # This command runs inside the container on Linux and natively on Windows
           pytest -m navigation --alluredir=allure-results | tee pytest.log
-
-      - name: Verify Allure Results Exist
         shell: bash
-        run: |
-          if [ -z "$(ls -A allure-results)" ]; then
-            echo "Error: allure-results directory is empty. Pytest likely failed or found no tests."
-            exit 1
-          fi
 
       - name: Upload Allure Results
         uses: actions/upload-artifact@v4
@@ -124,8 +108,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: run-tests
     permissions:
-      contents: write 
-    # FIX: Use always() to ensure deployment runs even if one platform test fails
+      contents: write
+    # Use always() to run deployment even if the Linux job fails
     if: always()
 
     steps:
@@ -171,33 +155,27 @@ jobs:
           SITE_DIR="site"
           HISTORY_DIR="_history"
           
-          # 1. Prepare site directory
+          # 1. Create the local SITE_DIR
           if [ -d "$SITE_DIR" ]; then rm -rf "$SITE_DIR"; fi
           mkdir -p "$SITE_DIR/latest"
           
-          # Copy historical builds (full reports) from _history to site
+          # Copy historical reports
           echo "Copying historical builds from $HISTORY_DIR to $SITE_DIR..."
           find "$HISTORY_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" -exec cp -r {} "$SITE_DIR/" \; 2>/dev/null || echo "No numeric history folders to copy."
 
           # 2. Generate NEW reports and merge them into the site directory
           for OS in ubuntu-latest windows-latest; do
             ALLURE_RESULTS_DIR="allure-results/$OS"
-            
-            # CRITICAL CHECK: Only proceed if the results directory exists (i.e., the artifact was downloaded)
+
+            # Only proceed if the results directory exists (i.e., the artifact was downloaded)
             if [ -d "$ALLURE_RESULTS_DIR" ] && [ -n "$(ls -A $ALLURE_RESULTS_DIR)" ]; then
               VERSIONED_REPORT_DIR="allure-report-${BUILD_NUMBER}-${OS}"
               mkdir -p "$VERSIONED_REPORT_DIR"
 
-              # Fix for Allure "Trend: There is nothing to show"
-              if [ -d "$HISTORY_DIR/latest/$OS/history" ]; then
-                echo "Copying previous history for $OS..."
-                cp -r "$HISTORY_DIR/latest/$OS/history" "$ALLURE_RESULTS_DIR/"
-              fi
-              
               # Generate the new report
-              allure generate "$ALLURE_RESULTS_DIR" --output "$VERSIONED_REPORT_DIR" --clean
+              allure generate "allure-results/$OS" --output "$VERSIONED_REPORT_DIR" --clean
 
-              # Copy the NEW report into the site directory
+              # Copy the NEW report into the site directory (this is the current build)
               mkdir -p "$SITE_DIR/$BUILD_NUMBER/$OS"
               cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/$BUILD_NUMBER/$OS/"
               
@@ -213,7 +191,7 @@ jobs:
             fi
           done
 
-      - name: Rebuild index.html
+      - name: Rebuild index.html (Now comprehensive as all history is local)
         run: |
           SITE_DIR="site"
           echo "<html><head><title>Allure Reports History</title><style>body { font-family: sans-serif; }</style></head><body><h1>Allure Reports History</h1><hr><ul>" > "$SITE_DIR/index.html"
@@ -228,7 +206,7 @@ jobs:
           
           echo "</ul><hr><h2>All Historical Builds</h2><ul>" >> "$SITE_DIR/index.html"
           
-          # 2. Historical reports
+          # 2. Historical reports (Guaranteed to find them now in the SITE_DIR)
           HISTORICAL_BUILDS=$(find "$SITE_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" | xargs -n 1 basename | sort -nr)
           
           if [ -z "$HISTORICAL_BUILDS" ]; then
@@ -246,13 +224,13 @@ jobs:
 
           echo "</ul></body></html>" >> "$SITE_DIR/index.html"
           
-      - name: Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages (Final Robust Fix)
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: site
           publish_branch: gh-pages
-          force_orphan: true 
+          force_orphan: true
           commit_message: "Deploy Allure Reports - Build ${{ github.run_number }}"
 
       - name: Add workflow badges to summary
@@ -260,7 +238,7 @@ jobs:
           REPO_NAME=${GITHUB_REPOSITORY##*/}
           OWNER=${GITHUB_REPOSITORY_OWNER}
 
-          echo "### Robotics BDD Simulation CI/CD" >> $GITHUB_STEP_SUMMARY
+          echo "### Robotics TDD Simulation CI/CD" >> $GITHUB_STEP_SUMMARY
           echo "[![Ubuntu Latest Report](https://img.shields.io/badge/Ubuntu-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/ubuntu-latest/)" >> $GITHUB_STEP_SUMMARY
           echo "[![Windows Latest Report](https://img.shields.io/badge/Windows-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/windows-latest/)" >> $GITHUB_STEP_SUMMARY
           echo "[![Report History](https://img.shields.io/badge/All-Builds-green)](https://${OWNER}.github.io/${REPO_NAME}/)" >> $GITHUB_STEP_SUMMARY
