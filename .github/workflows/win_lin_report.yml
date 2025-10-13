@@ -23,6 +23,8 @@ jobs:
   run-tests:
     runs-on: ${{ matrix.os }}
     strategy:
+      # CRITICAL FIX 1: Ensure all matrix jobs complete, even if one fails (Fixes Windows artifact missing)
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
         include:
@@ -30,7 +32,7 @@ jobs:
           - os: ubuntu-latest
             container_image: python:3.10-slim-buster
 
-    # Apply the container image defined in the matrix (only on Linux)
+    # CRITICAL RESTORATION: Apply the container image defined in the matrix (only on Linux)
     container: ${{ matrix.container_image }} 
 
     permissions:
@@ -57,6 +59,7 @@ jobs:
           pip install pytest allure-pytest
 
       - name: Install Python dependencies (Linux/Docker Only)
+        # This step runs inside the Docker container
         if: runner.os == 'Linux'
         run: |
           echo "Installing pytest allure-pytest inside Docker container..."
@@ -103,12 +106,10 @@ jobs:
         # even if pytest fails. We capture the actual exit code for later use.
         run: |
           echo "Running pytest navigation tests..."
-          #pytest -m navigation --alluredir=allure-results | tee pytest.log
-          pytest --alluredir=allure-results | tee pytest.log
+          pytest -m navigation --alluredir=allure-results | tee pytest.log
           echo "TEST_EXIT_CODE=$?" >> $GITHUB_OUTPUT
         shell: bash
 
-      # --- Critical Fix: Upload Artifact MUST happen before the job is failed ---
       - name: Upload Allure Results (Always Run)
         uses: actions/upload-artifact@v4
         # We ensure this step runs regardless of the outcome of 'run_tests'
@@ -150,14 +151,17 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           clean: false
 
+      # CRITICAL FIX 2: Add 'if: always()' to artifact downloads to prevent the 'deploy-pages' job from failing 
       - name: Download Linux Allure Results
         uses: actions/download-artifact@v4
+        if: always()
         with:
           name: allure-results-ubuntu-latest
           path: allure-results/ubuntu-latest
 
       - name: Download Windows Allure Results
         uses: actions/download-artifact@v4
+        if: always()
         with:
           name: allure-results-windows-latest
           path: allure-results/windows-latest
@@ -277,5 +281,5 @@ jobs:
 
           echo "### Robotics TDD Simulation CI/CD" >> $GITHUB_STEP_SUMMARY
           echo "[![Ubuntu Latest Report](https://img.shields.io/badge/Ubuntu-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/ubuntu-latest/)" >> $GITHUB_STEP_SUMMARY
-          echo "[![Windows Latest Report](https://img.shields.io/badge/Windows-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/windows-latest/)" >> $GITHUB_STEP_SUMMARY
+          echo "[![Windows Latest Report](https://imgshields.io/badge/Windows-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/windows-latest/)" >> $GITHUB_STEP_SUMMARY
           echo "[![Report History](https://img.shields.io/badge/All-Builds-green)](https://${OWNER}.github.io/${REPO_NAME}/)" >> $GITHUB_STEP_SUMMARY
