@@ -1,1 +1,1 @@
-[{"data":{}},{"data":{}}]
+[{"buildOrder":75,"reportUrl":"${env.BUILD_URL}artifact/${ALLURE_REPORT_DIR}/index.html","data":{}},{"data":{}},{"data":{}}]
