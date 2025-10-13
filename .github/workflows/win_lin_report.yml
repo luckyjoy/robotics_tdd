@@ -94,7 +94,7 @@ jobs:
             echo "❌ Tests failed by scenario."
           fi
 
-      # ---------- Upload artifacts (only if passed or failed) ----------
+      # ---------- Upload artifacts ----------
       - name: Upload Allure Results
         if: steps.test_status.outputs.TEST_STATUS == 'failed' || steps.test_status.outputs.TEST_STATUS == 'passed'
         uses: actions/upload-artifact@v4
@@ -111,9 +111,6 @@ jobs:
           path: pytest.log
           retention-days: 7
 
-  # ---------------------------------------------------------------------
-  # DEPLOY: only if tests passed or failed (not infra-failure)
-  # ---------------------------------------------------------------------
   deploy-pages:
     runs-on: ubuntu-latest
     needs: run-tests
@@ -172,31 +169,25 @@ jobs:
             ALLURE_RESULTS_DIR="allure-results/$OS"
 
             if [ -d "$ALLURE_RESULTS_DIR" ] && [ -n "$(ls -A $ALLURE_RESULTS_DIR)" ]; then
+              mkdir -p "$ALLURE_RESULTS_DIR"
+              echo "{" > "$ALLURE_RESULTS_DIR/executor.json"
+              echo "  \"name\": \"$OS\"," >> "$ALLURE_RESULTS_DIR/executor.json"
+              echo "  \"type\": \"GitHub Actions\"," >> "$ALLURE_RESULTS_DIR/executor.json"
+              echo "  \"url\": \"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"," >> "$ALLURE_RESULTS_DIR/executor.json"
+              echo "  \"reportUrl\": \"https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY##*/}/latest/$OS/\"," >> "$ALLURE_RESULTS_DIR/executor.json"
+              echo "  \"buildOrder\": \"${GITHUB_RUN_NUMBER}\"," >> "$ALLURE_RESULTS_DIR/executor.json"
+              echo "  \"buildName\": \"Build ${GITHUB_RUN_NUMBER} ($OS)\"," >> "$ALLURE_RESULTS_DIR/executor.json"
+              echo "  \"buildUrl\": \"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"" >> "$ALLURE_RESULTS_DIR/executor.json"
+              echo "}" >> "$ALLURE_RESULTS_DIR/executor.json"
 
-              # ---- Create executor.json ----
-              cat <<EOF > "$ALLURE_RESULTS_DIR/executor.json"
-{
-  "name": "$OS",
-  "type": "GitHub Actions",
-  "url": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}",
-  "reportUrl": "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY##*/}/latest/$OS/",
-  "buildOrder": "${GITHUB_RUN_NUMBER}",
-  "buildName": "Build ${GITHUB_RUN_NUMBER} ($OS)",
-  "buildUrl": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-}
-EOF
-
-              # ---- Copy previous history if exists ----
               if [ -d "$HISTORY_DIR/latest/$OS/history" ]; then
                 cp -r "$HISTORY_DIR/latest/$OS/history" "$ALLURE_RESULTS_DIR/"
               fi
 
-              # ---- Generate versioned report ----
               VERSIONED_DIR="$SITE_DIR/${BUILD_NUMBER}/$OS"
               mkdir -p "$VERSIONED_DIR"
               allure generate "$ALLURE_RESULTS_DIR" --output "$VERSIONED_DIR" --clean
 
-              # ---- Copy to latest for badges ----
               LATEST_DIR="$SITE_DIR/latest/$OS"
               mkdir -p "$LATEST_DIR"
               cp -r "$VERSIONED_DIR"/* "$LATEST_DIR/"
@@ -206,7 +197,6 @@ EOF
             fi
           done
 
-          # ---- Update _history for trends ----
           rm -rf "$HISTORY_DIR/latest"
           mkdir -p "$HISTORY_DIR/latest"
           cp -r "$SITE_DIR/latest"/* "$HISTORY_DIR/latest/"
