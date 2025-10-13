@@ -35,7 +35,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ---------- LINUX: Run via Docker ----------
+      # ---------- Linux Docker ----------
       - name: Run tests in Docker (Linux only)
         if: runner.os == 'Linux'
         id: linux_tests
@@ -54,7 +54,7 @@ jobs:
             "
           echo "TEST_EXIT_CODE=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      # ---------- WINDOWS: Run natively ----------
+      # ---------- Windows ----------
       - name: Set up Python (Windows only)
         if: runner.os == 'Windows'
         uses: actions/setup-python@v5
@@ -84,15 +84,18 @@ jobs:
 
           if [ -z "$TEST_EXIT_CODE" ]; then
             echo "TEST_STATUS=infra-failure" >> $GITHUB_OUTPUT
+            echo "❌ No exit code reported (infra failure)."
           elif [ "$TEST_EXIT_CODE" == "0" ]; then
             echo "TEST_STATUS=passed" >> $GITHUB_OUTPUT
+            echo "✅ Tests passed."
           else
             echo "TEST_STATUS=failed" >> $GITHUB_OUTPUT
+            echo "❌ Tests failed by scenario."
           fi
 
       # ---------- Upload artifacts ----------
       - name: Upload Allure Results
-        if: steps.test_status.outputs.TEST_STATUS == 'failed' || steps.test_status.outputs.TEST_STATUS == 'passed'
+        if: steps.test_status.outputs.TEST_STATUS != 'infra-failure'
         uses: actions/upload-artifact@v4
         with:
           name: allure-results-${{ matrix.os }}
@@ -100,19 +103,21 @@ jobs:
           retention-days: 7
 
       - name: Upload pytest logs
-        if: steps.test_status.outputs.TEST_STATUS == 'failed' || steps.test_status.outputs.TEST_STATUS == 'passed'
+        if: steps.test_status.outputs.TEST_STATUS != 'infra-failure'
         uses: actions/upload-artifact@v4
         with:
           name: pytest-logs-${{ matrix.os }}
           path: pytest.log
           retention-days: 7
 
+  # ---------------------------------------------------------------------
+  # DEPLOY: only if tests ran successfully (not infra-failure)
+  # ---------------------------------------------------------------------
   deploy-pages:
     runs-on: ubuntu-latest
     needs: run-tests
     if: |
-      needs.run-tests.outputs.TEST_STATUS == 'failed' ||
-      needs.run-tests.outputs.TEST_STATUS == 'passed'
+      needs.run-tests.outputs.TEST_STATUS != 'infra-failure'
     permissions:
       contents: write
 
@@ -131,13 +136,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           clean: false
 
-      - name: Download Allure Results
+      - name: Download Allure Results (Ubuntu)
         uses: actions/download-artifact@v4
         with:
           name: allure-results-ubuntu-latest
           path: allure-results/ubuntu-latest
 
-      - name: Download Allure Results
+      - name: Download Allure Results (Windows)
         uses: actions/download-artifact@v4
         with:
           name: allure-results-windows-latest
@@ -152,51 +157,48 @@ jobs:
           echo "$PWD/allure-commandline/bin" >> $GITHUB_PATH
           sudo apt-get update && sudo apt-get install -y tzdata
 
-      - name: Generate Allure Reports with History
+      - name: Generate Allure Reports & Preserve History
         shell: bash
         run: |
           BUILD_NUMBER=${GITHUB_RUN_NUMBER}
           SITE_DIR="site"
           HISTORY_DIR="_history"
-
-          mkdir -p "$SITE_DIR"
+          mkdir -p "$SITE_DIR/latest"
           mkdir -p "$HISTORY_DIR"
 
           for OS in ubuntu-latest windows-latest; do
             ALLURE_RESULTS_DIR="allure-results/$OS"
 
             if [ -d "$ALLURE_RESULTS_DIR" ] && [ -n "$(ls -A $ALLURE_RESULTS_DIR)" ]; then
-
-              VERSIONED_DIR="$SITE_DIR/${BUILD_NUMBER}/$OS"
+              VERSIONED_DIR="$SITE_DIR/$BUILD_NUMBER/$OS"
               mkdir -p "$VERSIONED_DIR"
               allure generate "$ALLURE_RESULTS_DIR" --output "$VERSIONED_DIR" --clean
 
-              # Copy to latest for badges
+              # Copy versioned report to latest
               LATEST_DIR="$SITE_DIR/latest/$OS"
-              rm -rf "$LATEST_DIR"
               mkdir -p "$LATEST_DIR"
               cp -r "$VERSIONED_DIR"/* "$LATEST_DIR/"
 
-              # Copy to _history for all builds
+              # Save to history for trends
               HISTORY_BUILD_DIR="$HISTORY_DIR/$BUILD_NUMBER/$OS"
               mkdir -p "$HISTORY_BUILD_DIR"
               cp -r "$VERSIONED_DIR"/* "$HISTORY_BUILD_DIR/"
 
+              # Create executor.json
+              echo "{\"name\":\"$OS\",\"type\":\"GitHub Actions\",\"url\":\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\",\"reportUrl\":\"https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY##*/}/$BUILD_NUMBER/$OS/\",\"buildOrder\":\"${GITHUB_RUN_NUMBER}\",\"buildName\":\"Build ${GITHUB_RUN_NUMBER} ($OS)\",\"buildUrl\":\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" > "$HISTORY_BUILD_DIR/executor.json"
             else
               echo "⚠️ Skipping $OS report generation (no results)."
             fi
           done
 
-          # Generate index.html for report history
+          # ---- Generate index.html for report history ----
           INDEX_FILE="$SITE_DIR/index.html"
           echo "<html><head><title>Allure Report History</title></head><body><h1>Allure Report History</h1><ul>" > "$INDEX_FILE"
-
           for OS in ubuntu-latest windows-latest; do
             for BUILD in $(ls -1 "$HISTORY_DIR" | sort -n); do
-              echo "<li><a href=\"../_history/$BUILD/$OS/\">$OS Build $BUILD</a></li>" >> "$INDEX_FILE"
+              echo "<li><a href=\"_history/$BUILD/$OS/\">$OS Build $BUILD</a></li>" >> "$INDEX_FILE"
             done
           done
-
           echo "</ul></body></html>" >> "$INDEX_FILE"
 
       - name: Deploy to GitHub Pages
@@ -211,8 +213,7 @@ jobs:
         run: |
           REPO_NAME=${GITHUB_REPOSITORY##*/}
           OWNER=${GITHUB_REPOSITORY_OWNER}
-
           echo "### Robotics TDD Simulation CI/CD" >> $GITHUB_STEP_SUMMARY
-          echo "[![Ubuntu Latest Report](https://img.shields.io/badge/Ubuntu-Latest_Build-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/ubuntu-latest/)" >> $GITHUB_STEP_SUMMARY
-          echo "[![Windows Latest Report](https://img.shields.io/badge/Windows-Latest_Build-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/windows-latest/)" >> $GITHUB_STEP_SUMMARY
+          echo "[![Ubuntu Latest Report](https://img.shields.io/badge/Ubuntu-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/ubuntu-latest/)" >> $GITHUB_STEP_SUMMARY
+          echo "[![Windows Latest Report](https://img.shields.io/badge/Windows-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/windows-latest/)" >> $GITHUB_STEP_SUMMARY
           echo "[![Report History](https://img.shields.io/badge/All-Builds-green)](https://${OWNER}.github.io/${REPO_NAME}/index.html)" >> $GITHUB_STEP_SUMMARY
