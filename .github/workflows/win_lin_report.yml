@@ -65,24 +65,23 @@ jobs:
         if: runner.os == 'Windows'
         id: windows_tests
         continue-on-error: true
+        shell: pwsh
         run: |
           pip install pytest allure-pytest pytest-html
-          rm -rf allure-results || true
-          pytest -m navigation --alluredir=allure-results | tee pytest.log
-          echo "TEST_EXIT_CODE=$LASTEXITCODE" >> $env:GITHUB_OUTPUT
-        shell: pwsh
+          if (Test-Path "allure-results") { Remove-Item -Recurse -Force allure-results }
+          mkdir allure-results
+          pytest -m navigation --alluredir=allure-results | Tee-Object -FilePath pytest.log
+          $exitCode = $LASTEXITCODE
+          Write-Host "Pytest exit code: $exitCode"
+          "TEST_EXIT_CODE=$exitCode" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       # ---------- Determine test status ----------
       - name: Determine test result status
         id: test_status
+        shell: bash
         run: |
           echo "Determining test status..."
-          TEST_EXIT_CODE=1
-          if [ "${{ runner.os }}" == "Linux" ]; then
-            TEST_EXIT_CODE="${{ steps.linux_tests.outputs.TEST_EXIT_CODE }}"
-          else
-            TEST_EXIT_CODE="${{ steps.windows_tests.outputs.TEST_EXIT_CODE }}"
-          fi
+          TEST_EXIT_CODE="${{ steps.linux_tests.outputs.TEST_EXIT_CODE || steps.windows_tests.outputs.TEST_EXIT_CODE }}"
 
           if [ -z "$TEST_EXIT_CODE" ]; then
             echo "TEST_STATUS=infra-failure" >> $GITHUB_OUTPUT
@@ -94,7 +93,6 @@ jobs:
             echo "TEST_STATUS=failed" >> $GITHUB_OUTPUT
             echo "❌ Tests failed by scenario."
           fi
-        shell: bash
 
       # ---------- Upload artifacts (only if passed or failed) ----------
       - name: Upload Allure Results
@@ -114,7 +112,7 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------
-  # DEPLOY: only if any OS had passed OR failed (but not infra failure)
+  # DEPLOY: only if any OS had passed OR failed (not infra-failure)
   # ---------------------------------------------------------------------
   deploy-pages:
     runs-on: ubuntu-latest
