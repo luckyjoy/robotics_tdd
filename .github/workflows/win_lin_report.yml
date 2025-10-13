@@ -111,6 +111,9 @@ jobs:
           path: pytest.log
           retention-days: 7
 
+  # ---------------------------------------------------------------------
+  # DEPLOY: only if tests passed or failed (not infra-failure)
+  # ---------------------------------------------------------------------
   deploy-pages:
     runs-on: ubuntu-latest
     needs: run-tests
@@ -165,10 +168,15 @@ jobs:
           rm -rf "$SITE_DIR"
           mkdir -p "$SITE_DIR/latest"
 
+          OS_LIST=""
+
           for OS in ubuntu-latest windows-latest; do
             ALLURE_RESULTS_DIR="allure-results/$OS"
 
             if [ -d "$ALLURE_RESULTS_DIR" ] && [ -n "$(ls -A $ALLURE_RESULTS_DIR)" ]; then
+              OS_LIST="$OS_LIST $OS"
+
+              # ---- Create executor.json safely ----
               mkdir -p "$ALLURE_RESULTS_DIR"
               echo "{" > "$ALLURE_RESULTS_DIR/executor.json"
               echo "  \"name\": \"$OS\"," >> "$ALLURE_RESULTS_DIR/executor.json"
@@ -180,14 +188,17 @@ jobs:
               echo "  \"buildUrl\": \"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"" >> "$ALLURE_RESULTS_DIR/executor.json"
               echo "}" >> "$ALLURE_RESULTS_DIR/executor.json"
 
+              # ---- Copy previous history if exists ----
               if [ -d "$HISTORY_DIR/latest/$OS/history" ]; then
                 cp -r "$HISTORY_DIR/latest/$OS/history" "$ALLURE_RESULTS_DIR/"
               fi
 
+              # ---- Generate versioned report ----
               VERSIONED_DIR="$SITE_DIR/${BUILD_NUMBER}/$OS"
               mkdir -p "$VERSIONED_DIR"
               allure generate "$ALLURE_RESULTS_DIR" --output "$VERSIONED_DIR" --clean
 
+              # ---- Copy to latest for badges ----
               LATEST_DIR="$SITE_DIR/latest/$OS"
               mkdir -p "$LATEST_DIR"
               cp -r "$VERSIONED_DIR"/* "$LATEST_DIR/"
@@ -197,9 +208,26 @@ jobs:
             fi
           done
 
+          # ---- Update _history for trends ----
           rm -rf "$HISTORY_DIR/latest"
           mkdir -p "$HISTORY_DIR/latest"
           cp -r "$SITE_DIR/latest"/* "$HISTORY_DIR/latest/"
+
+          # ---- Create dynamic index.html ----
+          INDEX_FILE="$SITE_DIR/index.html"
+          echo "<html>" > "$INDEX_FILE"
+          echo "  <head><title>Allure Report History</title></head>" >> "$INDEX_FILE"
+          echo "  <body>" >> "$INDEX_FILE"
+          echo "    <h1>Allure Report History</h1>" >> "$INDEX_FILE"
+          echo "    <ul>" >> "$INDEX_FILE"
+
+          for OS in $OS_LIST; do
+            echo "      <li><a href=\"latest/$OS/\">$OS Latest</a></li>" >> "$INDEX_FILE"
+          done
+
+          echo "    </ul>" >> "$INDEX_FILE"
+          echo "  </body>" >> "$INDEX_FILE"
+          echo "</html>" >> "$INDEX_FILE"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
@@ -215,6 +243,7 @@ jobs:
           OWNER=${GITHUB_REPOSITORY_OWNER}
 
           echo "### Robotics TDD Simulation CI/CD" >> $GITHUB_STEP_SUMMARY
-          echo "[![Ubuntu Latest Report](https://img.shields.io/badge/Ubuntu-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/ubuntu-latest/)" >> $GITHUB_STEP_SUMMARY
-          echo "[![Windows Latest Report](https://img.shields.io/badge/Windows-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/windows-latest/)" >> $GITHUB_STEP_SUMMARY
-          echo "[![Report History](https://img.shields.io/badge/All-Builds-green)](https://${OWNER}.github.io/${REPO_NAME}/)" >> $GITHUB_STEP_SUMMARY
+          for OS in ubuntu-latest windows-latest; do
+            echo "[![${OS} Latest Report](https://img.shields.io/badge/${OS}-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/$OS/)" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "[![Report History](https://img.shields.io/badge/All-Builds-green)](https://${OWNER}.github.io/${REPO_NAME}/index.html)" >> $GITHUB_STEP_SUMMARY
