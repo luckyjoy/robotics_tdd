@@ -80,19 +80,23 @@ jobs:
         id: test_status
         shell: bash
         run: |
+          echo "Determining test status..."
           TEST_EXIT_CODE="${{ steps.linux_tests.outputs.TEST_EXIT_CODE || steps.windows_tests.outputs.TEST_EXIT_CODE }}"
 
           if [ -z "$TEST_EXIT_CODE" ]; then
             echo "TEST_STATUS=infra-failure" >> $GITHUB_OUTPUT
+            echo "❌ No exit code reported (infra failure)."
           elif [ "$TEST_EXIT_CODE" == "0" ]; then
             echo "TEST_STATUS=passed" >> $GITHUB_OUTPUT
+            echo "✅ Tests passed."
           else
             echo "TEST_STATUS=failed" >> $GITHUB_OUTPUT
+            echo "❌ Tests failed by scenario."
           fi
 
       # ---------- Upload artifacts ----------
       - name: Upload Allure Results
-        if: steps.test_status.outputs.TEST_STATUS != 'infra-failure'
+        if: steps.test_status.outputs.TEST_STATUS == 'failed' || steps.test_status.outputs.TEST_STATUS == 'passed'
         uses: actions/upload-artifact@v4
         with:
           name: allure-results-${{ matrix.os }}
@@ -100,17 +104,22 @@ jobs:
           retention-days: 7
 
       - name: Upload pytest logs
-        if: steps.test_status.outputs.TEST_STATUS != 'infra-failure'
+        if: steps.test_status.outputs.TEST_STATUS == 'failed' || steps.test_status.outputs.TEST_STATUS == 'passed'
         uses: actions/upload-artifact@v4
         with:
           name: pytest-logs-${{ matrix.os }}
           path: pytest.log
           retention-days: 7
 
+  # ---------------------------------------------------------------------
+  # DEPLOY: only if tests passed or failed (not infra-failure)
+  # ---------------------------------------------------------------------
   deploy-pages:
     runs-on: ubuntu-latest
     needs: run-tests
-    if: needs.run-tests.outputs.TEST_STATUS != 'infra-failure'
+    if: |
+      needs.run-tests.outputs.TEST_STATUS == 'failed' || 
+      needs.run-tests.outputs.TEST_STATUS == 'passed'
     permissions:
       contents: write
 
@@ -125,17 +134,17 @@ jobs:
         with:
           repository: ${{ github.repository }}
           ref: gh-pages
-          path: site
+          path: _history
           token: ${{ secrets.GITHUB_TOKEN }}
           clean: false
 
-      - name: Download Allure Results
+      - name: Download Allure Results (Ubuntu)
         uses: actions/download-artifact@v4
         with:
           name: allure-results-ubuntu-latest
           path: allure-results/ubuntu-latest
 
-      - name: Download Allure Results
+      - name: Download Allure Results (Windows)
         uses: actions/download-artifact@v4
         with:
           name: allure-results-windows-latest
@@ -148,54 +157,68 @@ jobs:
           mkdir -p allure-commandline
           tar -xzf allure.tgz -C allure-commandline --strip-components 1
           echo "$PWD/allure-commandline/bin" >> $GITHUB_PATH
-          sudo apt-get update && sudo apt-get install -y tzdata
+          sudo apt-get update && sudo apt-get install -y tzdata jq
 
-      - name: Generate Allure Reports with History
+      - name: Generate Allure Reports with History & Executor
         shell: bash
         run: |
           BUILD_NUMBER=${GITHUB_RUN_NUMBER}
           SITE_DIR="site"
+          HISTORY_DIR="_history"
+          rm -rf "$SITE_DIR"
           mkdir -p "$SITE_DIR/latest"
 
           for OS in ubuntu-latest windows-latest; do
             ALLURE_RESULTS_DIR="allure-results/$OS"
-            VERSIONED_DIR="$SITE_DIR/${BUILD_NUMBER}/$OS"
-            LATEST_DIR="$SITE_DIR/latest/$OS"
+            mkdir -p "$ALLURE_RESULTS_DIR"
 
-            # Copy previous history if exists
-            if [ -d "$SITE_DIR/latest/$OS/history" ]; then
-              cp -r "$SITE_DIR/latest/$OS/history" "$ALLURE_RESULTS_DIR/"
+            if [ -d "$ALLURE_RESULTS_DIR" ] && [ -n "$(ls -A $ALLURE_RESULTS_DIR)" ]; then
+
+              # ---- Copy template executor.json and update dynamic fields ----
+              if [ -f "supports/executor.json" ]; then
+                jq --arg OS "$OS" \
+                   --arg BUILD_NUMBER "$BUILD_NUMBER" \
+                   --arg RUN_URL "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+                   '.name=$OS | .buildOrder=$BUILD_NUMBER | .buildName="Build \($BUILD_NUMBER) (\($OS))" | .url=$RUN_URL | .buildUrl=$RUN_URL' \
+                   supports/executor.json > "$ALLURE_RESULTS_DIR/executor.json"
+              fi
+
+              # ---- Copy previous history if exists ----
+              if [ -d "$HISTORY_DIR/latest/$OS/history" ]; then
+                cp -r "$HISTORY_DIR/latest/$OS/history" "$ALLURE_RESULTS_DIR/"
+              fi
+
+              # ---- Generate versioned report ----
+              VERSIONED_DIR="$SITE_DIR/${BUILD_NUMBER}/$OS"
+              mkdir -p "$VERSIONED_DIR"
+              allure generate "$ALLURE_RESULTS_DIR" --output "$VERSIONED_DIR" --clean
+
+              # ---- Copy to latest for badges ----
+              LATEST_DIR="$SITE_DIR/latest/$OS"
+              mkdir -p "$LATEST_DIR"
+              cp -r "$VERSIONED_DIR"/* "$LATEST_DIR/"
+
+            else
+              echo "⚠️ Skipping $OS report generation (no results)."
             fi
-
-            mkdir -p "$VERSIONED_DIR"
-            mkdir -p "$LATEST_DIR"
-
-            # Generate versioned report
-            allure generate "$ALLURE_RESULTS_DIR" --output "$VERSIONED_DIR" --clean
-
-            # Copy to latest
-            cp -r "$VERSIONED_DIR"/* "$LATEST_DIR/"
           done
 
-          # Create index.html for report history
-          INDEX_FILE="$SITE_DIR/index.html"
-          echo "<html><head><title>Allure Report History</title></head><body><h1>Allure Report History</h1><ul>" > "$INDEX_FILE"
+          # ---- Update _history for trends ----
+          rm -rf "$HISTORY_DIR/latest"
+          mkdir -p "$HISTORY_DIR/latest"
+          cp -r "$SITE_DIR/latest"/* "$HISTORY_DIR/latest/"
 
-          # List all builds
+          # ---- Generate index.html for Allure Report History ----
+          HISTORY_HTML="$SITE_DIR/index.html"
+          echo "<html><head><title>Allure Report History</title></head><body><h1>Allure Report History</h1><ul>" > "$HISTORY_HTML"
           for BUILD in $(ls -v $SITE_DIR | grep -E '^[0-9]+$'); do
             for OS in ubuntu-latest windows-latest; do
               if [ -d "$SITE_DIR/$BUILD/$OS" ]; then
-                echo "<li><a href=\"$BUILD/$OS/\">$OS Build $BUILD</a></li>" >> "$INDEX_FILE"
+                echo "<li><a href=\"$BUILD/$OS/\">$OS Build $BUILD</a></li>" >> "$HISTORY_HTML"
               fi
             done
           done
-
-          # Add latest links
-          for OS in ubuntu-latest windows-latest; do
-            echo "<li><a href=\"latest/$OS/\">$OS Latest</a></li>" >> "$INDEX_FILE"
-          done
-
-          echo "</ul></body></html>" >> "$INDEX_FILE"
+          echo "</ul></body></html>" >> "$HISTORY_HTML"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
