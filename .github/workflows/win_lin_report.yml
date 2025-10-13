@@ -103,6 +103,7 @@ jobs:
         # even if pytest fails. We capture the actual exit code for later use.
         run: |
           echo "Running pytest navigation tests..."
+          #pytest -m navigation --alluredir=allure-results | tee pytest.log
           pytest -m navigation --alluredir=allure-results | tee pytest.log
           echo "TEST_EXIT_CODE=$?" >> $GITHUB_OUTPUT
         shell: bash
