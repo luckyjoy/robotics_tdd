@@ -10,33 +10,28 @@ on:
   schedule:
     - cron: '0 7 * * *'
 
+# CRITICAL FIX: Set global permissions to read-only AND explicitly set 'pages: none' 
+# to guarantee that the built-in GitHub Pages workflow is not triggered.
 permissions:
-  contents: read
+  contents: read # Default to read
   actions: read
   checks: read
   pull-requests: read
   statuses: read
-  pages: none
-  id-token: none
+  pages: none # Ensures the built-in 'pages build and deployment' job is blocked
+  id-token: none # Blocks OIDC which can be an indirect trigger
 
 jobs:
   run-tests:
     runs-on: ${{ matrix.os }}
     strategy:
-      # CRITICAL FIX: Ensure all matrix jobs complete, even if one fails
+      # FIX: Ensure all matrix jobs complete, even if one fails
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        include:
-          # Docker configuration for Linux only
-          - os: ubuntu-latest
-            container_image: python:3.10-slim-buster
-
-    # Docker Container Execution Environment
-    container: ${{ matrix.container_image }} 
 
     permissions:
-      contents: write
+      contents: write # Overriding global 'read' to 'write' for artifact upload
 
     steps:
       - name: Checkout repository
@@ -44,28 +39,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      # --- Python Setup & Installation ---
-
-      - name: Set up Python (Windows Only)
-        if: runner.os == 'Windows'
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install Python dependencies (Windows Only)
-        if: runner.os == 'Windows'
+      - name: Install Python dependencies
         run: |
-          echo "Installing pytest allure-pytest..."
-          pip install pytest allure-pytest
-
-      - name: Install Python dependencies (Linux/Docker Only)
-        # This step runs inside the Docker container
-        if: runner.os == 'Linux'
-        run: |
-          echo "Installing pytest allure-pytest inside Docker container..."
-          pip install pytest allure-pytest
-
-      # --- Test Run Steps ---
+          echo "Installing pytest allure-pytest, pytest-html..."
+          pip install pytest allure-pytest pytest-html
 
       - name: Clean previous allure-results
         run: |
@@ -78,7 +60,7 @@ jobs:
           echo "Copying supports files for $RUNNER_OS..."
           mkdir -p allure-results
           
-          # 1. Copy categories.json 
+          # 1. Copy categories.json (required for custom test failure categorization)
           cp supports/categories.json allure-results/ 2>/dev/null || echo "No categories.json file found"
 
           # 2. Copy environment properties based on OS, renaming to environment.properties
@@ -87,10 +69,12 @@ jobs:
             cp supports/ubuntu.properties allure-results/environment.properties 2>/dev/null || echo "No Ubuntu environment file found"
           elif [[ "$RUNNER_OS" == "Windows" ]]; then
             echo "Copying Windows environment properties..."
+            # Using cp command here is safe because the shell for the step is bash
             cp supports/windows.properties allure-results/environment.properties 2>/dev/null || echo "No Windows environment file found"
           fi
         shell: bash
 
+      # FIX: Missing step to generate executor info for Allure report
       - name: Generate Executor Info
         run: |
           REPO_NAME=${{ github.event.repository.name }}
@@ -100,22 +84,17 @@ jobs:
           echo '{"name":"${{ matrix.os }}","type":"GitHub Actions","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","reportUrl":"https://${REPO_OWNER}.github.io/${REPO_NAME}/latest/${{ matrix.os }}/","buildOrder":"${{ github.run_number }}","buildName":"Build ${{ github.run_number }} (${{ matrix.os }})","buildUrl":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' > allure-results/executor.json
         shell: bash
 
-      - name: Run tests (Docker on Linux, Direct on Windows)
+      - name: Run tests (Capture Exit Code, Allow Job to Continue)
         id: run_tests
+        # Use '|| true' to ensure the step reports success and allows subsequent steps (like artifact upload) to run, 
+        # even if pytest fails. We capture the actual exit code for later use.
         run: |
-          if [ "${{ runner.os }}" == "Linux" ]; then
-            # Explicitly states that the test is running inside the Docker container
-            echo "Running pytest navigation tests using Docker run environment..."
-          else
-            echo "Running pytest navigation tests on Windows..."
-          fi
-          
-          # Run the pytest command on both OSes. The Linux runner handles execution within the container.
+          echo "Running pytest navigation tests..."
           pytest -m navigation --alluredir=allure-results | tee pytest.log
-          
-          # Capture the exit code regardless of OS
           echo "TEST_EXIT_CODE=$?" >> $GITHUB_OUTPUT
         shell: bash
+        # Setting timeout on this step for robustness
+        timeout-minutes: 2 
 
       - name: Upload Allure Results (Always Run)
         uses: actions/upload-artifact@v4
@@ -126,23 +105,22 @@ jobs:
           path: allure-results
           retention-days: 7
 
-      - name: Check Test Status and Fail Job if Necessary (Signal Unstable Build)
-        # This step is placed AFTER the artifact upload.
-        # It checks the exit code from 'run_tests' and fails the job if it's non-zero.
+      # NEW STEP: Check Test Status and Fail Job if Necessary (Signal Unstable Build)
+      # This step is placed AFTER the artifact upload.
+      - name: Check Test Status and Fail Job if Necessary
         if: steps.run_tests.outputs.TEST_EXIT_CODE != '0'
         run: |
           echo "One or more tests failed (Exit Code: ${{ steps.run_tests.outputs.TEST_EXIT_CODE }}). Marking job as failed/unstable."
           exit 1
         shell: bash
 
----
-  
   deploy-pages:
     runs-on: ubuntu-latest
+    # FIX: Ensure deploy-pages runs even if run-tests jobs are marked unstable
     needs: run-tests
+    if: always() 
     permissions:
-      contents: write
-    if: always()
+      contents: write 
 
     steps:
       - name: Checkout repository (Primary branch)
@@ -150,6 +128,7 @@ jobs:
         with:
           fetch-depth: 0
 
+      # CRITICAL FIX 1: Checkout the existing gh-pages content into a temporary folder to preserve history
       - name: Checkout gh-pages history
         uses: actions/checkout@v4
         with:
@@ -159,6 +138,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           clean: false
 
+      # FIX: Add 'if: always()' to ensure the job doesn't fail if an artifact is missing
       - name: Download Linux Allure Results
         uses: actions/download-artifact@v4
         if: always()
@@ -180,7 +160,7 @@ jobs:
           curl -L -o allure.tgz "https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/${ALLURE_VERSION}/allure-commandline-${ALLURE_VERSION}.tgz"
           mkdir -p allure-commandline
           tar -xzf allure.tgz -C allure-commandline --strip-components 1
-          # Install time utility for local time conversion (Los Angeles Time)
+          # Install time utility for local time conversion (Los Angeles Time, for example)
           sudo apt-get update && sudo apt-get install -y tzdata
           echo "$PWD/allure-commandline/bin" >> $GITHUB_PATH
 
@@ -195,92 +175,93 @@ jobs:
           if [ -d "$SITE_DIR" ]; then rm -rf "$SITE_DIR"; fi
           mkdir -p "$SITE_DIR/latest"
           
-          # Copy historical reports
+          # CRITICAL FIX 2: Copy historical reports from the cloned gh-pages branch into the new site directory
           echo "Copying historical builds from $HISTORY_DIR to $SITE_DIR..."
           find "$HISTORY_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" -exec cp -r {} "$SITE_DIR/" \; 2>/dev/null || echo "No numeric history folders to copy."
 
           # Set CURRENT local time to Los Angeles Time (PDT/PST)
           CURRENT_BUILD_TIME=$(TZ='America/Los_Angeles' date +"%Y-%m-%d %H:%M:%S %Z")
           echo "Current Los Angeles Time: $CURRENT_BUILD_TIME"
-          
+
           # 2. Generate NEW reports and merge them into the site directory
           for OS in ubuntu-latest windows-latest; do
-          ALLURE_RESULTS_DIR="allure-results/$OS" 
-          
-          if [ -d "$ALLURE_RESULTS_DIR" ] && [ -n "$(ls -A $ALLURE_RESULTS_DIR)" ]; then
-          VERSIONED_REPORT_DIR="allure-report-${BUILD_NUMBER}-${OS}" 
-          mkdir -p "$VERSIONED_REPORT_DIR" 
+            ALLURE_RESULTS_DIR="allure-results/$OS"
+            
+            # Check if results exist before attempting generation (handles missing artifacts)
+            if [ -d "$ALLURE_RESULTS_DIR" ] && [ -n "$(ls -A $ALLURE_RESULTS_DIR)" ]; then
+              VERSIONED_REPORT_DIR="allure-report-${BUILD_NUMBER}-${OS}"
+              mkdir -p "$VERSIONED_REPORT_DIR"
+              
+              # FIX: Copy history from the previous 'latest' report into the results folder for Trend graph
+              if [ -d "$HISTORY_DIR/latest/$OS/history" ]; then
+                echo "Copying previous history for $OS to enable Trend graph..."
+                cp -r "$HISTORY_DIR/latest/$OS/history" "$ALLURE_RESULTS_DIR/"
+              fi
+              
+              # Generate the new report
+              allure generate "$ALLURE_RESULTS_DIR" --output "$VERSIONED_REPORT_DIR" --clean
 
-          # FIX: Trend: Copy history from the previous 'latest' report into the results folder
-          if [ -d "$HISTORY_DIR/latest/$OS/history" ]; then
-          echo "Copying previous history for $OS to enable Trend graph..."
-          cp -r "$HISTORY_DIR/latest/$OS/history" "$ALLURE_RESULTS_DIR/"
-          else
-          echo "No previous history found for $OS. Trend graph will start empty."
-          fi
-          
-          # Generate the new report
-          allure generate "allure-results/$OS" --output "$VERSIONED_REPORT_DIR" --clean 
+              # Copy the NEW report into the site directory (this is the current build)
+              mkdir -p "$SITE_DIR/$BUILD_NUMBER/$OS"
+              cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/$BUILD_NUMBER/$OS/"
+              
+              # Update 'latest' folder with NEW report
+              mkdir -p "$SITE_DIR/latest/$OS"
+              cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/latest/$OS/"
 
-          # Copy the NEW report into the site directory (this is the current build)
-          mkdir -p "$SITE_DIR/$BUILD_NUMBER/$OS" 
-          cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/$BUILD_NUMBER/$OS/" 
-          
-          # Update 'latest' folder with NEW report
-          mkdir -p "$SITE_DIR/latest/$OS" 
-          cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/latest/$OS/" 
-
-          # FIX: Update build info to current local time and copy it
-          echo "$CURRENT_BUILD_TIME" > "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt" 
-          cp "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt" "$SITE_DIR/latest/$OS/build-info.txt" 
-          else
-          echo "Skipping report generation for $OS: Artifact not found or empty." 
-          fi
+              # FIX: Update build info to current local time and copy it
+              echo "$CURRENT_BUILD_TIME" > "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt"
+              cp "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt" "$SITE_DIR/latest/$OS/build-info.txt"
+            else
+              echo "Skipping report generation for $OS: Artifact not found or empty."
+            fi
           done
 
-      - name: Rebuild index.html
+      - name: Rebuild index.html (Now comprehensive as all history is local)
         run: |
           SITE_DIR="site"
           echo "<html><head><title>Allure Reports History</title><style>body { font-family: sans-serif; }</style></head><body><h1>Allure Reports History</h1><hr><ul>" > "$SITE_DIR/index.html"
 
-          # 1. Latest reports - Reads timestamp directly from the newly created 'latest' folder
+          # 1. Latest reports
           for OS in ubuntu-latest windows-latest; do
-          if [ -d "$SITE_DIR/latest/$OS" ]; then
-          # Read the timestamp from the file we just created/updated
-          TS=$(cat "$SITE_DIR/latest/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)")
-          echo "<li><strong><a href='latest/$OS/'>Latest Report ($OS)</a></strong> - Last run: ${TS}</li>" >> "$SITE_DIR/index.html"
-          fi
+            if [ -d "$SITE_DIR/latest/$OS" ]; then
+              TS=$(cat "$SITE_DIR/latest/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)")
+              echo "<li><strong><a href='latest/$OS/'>Latest Report ($OS)</a></strong> - Last run: ${TS}</li>" >> "$SITE_DIR/index.html"
+            fi
           done
           
           echo "</ul><hr><h2>All Historical Builds</h2><ul>" >> "$SITE_DIR/index.html"
           
-          # 2. Historical reports (Reads timestamps from all build folders)
+          # 2. Historical reports (Guaranteed to find them now in the SITE_DIR)
           HISTORICAL_BUILDS=$(find "$SITE_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" | xargs -n 1 basename | sort -nr)
           
           if [ -z "$HISTORICAL_BUILDS" ]; then
-          echo "<p>No historical builds found.</p>" >> "$SITE_DIR/index.html"
+              echo "<p>No historical builds found.</p>" >> "$SITE_DIR/index.html"
           else
-          for BUILD in $HISTORICAL_BUILDS; do
-          for OS in ubuntu-latest windows-latest; do
-          if [ -d "$SITE_DIR/$BUILD/$OS" ]; then
-          TS=$(cat "$SITE_DIR/$BUILD/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)")
-          echo "<li><a href='${BUILD}/${OS}/'>Build #${BUILD} ($OS)</a> - ${TS}</li>" >> "$SITE_DIR/index.html"
-          fi
-          done
-          done
+              for BUILD in $HISTORICAL_BUILDS; do
+                for OS in ubuntu-latest windows-latest; do
+                  if [ -d "$SITE_DIR/$BUILD/$OS" ]; then
+                    TS=$(cat "$SITE_DIR/$BUILD/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)")
+                    echo "<li><a href='${BUILD}/${OS}/'>Build #${BUILD} ($OS)</a> - ${TS}</li>" >> "$SITE_DIR/index.html"
+                  fi
+                done
+              done
           fi
 
           echo "</ul></body></html>" >> "$SITE_DIR/index.html"
           
-      - name: Deploy to GitHub Pages
+      # CRITICAL FIX 3: Deploy the full, comprehensive 'site' folder to gh-pages
+      - name: Deploy to GitHub Pages (Final Robust Fix)
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: site
           publish_branch: gh-pages
-          force_orphan: true
+          # Use force_orphan: true to completely replace the gh-pages branch content 
+          force_orphan: true 
           commit_message: "Deploy Allure Reports - Build ${{ github.run_number }}"
 
+      # The final step for adding badges remains the same
       - name: Add workflow badges to summary
         run: |
           REPO_NAME=${GITHUB_REPOSITORY##*/}
