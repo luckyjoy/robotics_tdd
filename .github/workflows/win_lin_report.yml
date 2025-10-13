@@ -21,10 +21,17 @@ permissions:
 
 jobs:
   run-tests:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }} 
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+        include:
+          # Define the Docker image to use ONLY for the Ubuntu (Linux) runner
+          - os: ubuntu-latest
+            container_image: my-robotics-test-image:latest # <== IMPORTANT: REPLACE WITH YOUR ACTUAL IMAGE
+
+    # Use the container key if it exists in the matrix context (Docker on Linux, null/skip on Windows)
+    container: ${{ matrix.container_image }}
 
     permissions:
       contents: write 
@@ -37,15 +44,18 @@ jobs:
           fetch-depth: 0
           submodules: true
           lfs: true
-
-      - name: Set up Python
+          
+      # Python setup and dependency installation for Windows only (must be in Docker image for Linux)
+      - name: Set up Python (Windows Only)
+        if: runner.os == 'Windows'
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install Python dependencies
+      - name: Install Python dependencies (Windows Only)
+        if: runner.os == 'Windows'
         run: |
-          # Only installing required Allure plugin. Requires removing pytest-html hooks from conftest.py
+          # Only installing allure-pytest (assuming pytest-html hook was removed from conftest.py)
           echo "Installing pytest allure-pytest..."
           pip install pytest allure-pytest
 
@@ -80,6 +90,7 @@ jobs:
         shell: bash
 
       - name: Generate Executor Info
+        # Fix for Allure "Executors: There is no information"
         run: |
           REPO_NAME=${{ github.event.repository.name }}
           REPO_OWNER=${{ github.repository_owner }}
@@ -91,7 +102,8 @@ jobs:
         shell: bash
         run: |
           echo "Running pytest navigation tests..."
-          pytest -m sensors --alluredir=allure-results | tee pytest.log
+          # The pytest command runs inside the container on Linux and natively on Windows
+          pytest -m navigation --alluredir=allure-results | tee pytest.log
 
       - name: Verify Allure Results Exist
         shell: bash
@@ -136,14 +148,12 @@ jobs:
         with:
           name: allure-results-ubuntu-latest
           path: allure-results/ubuntu-latest
-          # The download action will now issue a warning instead of failing the step if the artifact is missing.
 
       - name: Download Windows Allure Results
         uses: actions/download-artifact@v4
         with:
           name: allure-results-windows-latest
           path: allure-results/windows-latest
-          # The download action will now issue a warning instead of failing the step if the artifact is missing.
 
       - name: Setup Allure CLI
         run: |
