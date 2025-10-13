@@ -1,0 +1,16 @@
+Simulator state has been reset.
+Simulator state has been reset.
+Robot loaded with arm=False
+Moving robot to target [1.0, 0, 0]...
+Robot stepped forward to [0.1, 0.0, 0.0]
+Robot stepped forward to [0.2, 0.0, 0.0]
+Robot stepped forward to [0.30000000000000004, 0.0, 0.0]
+Robot stepped forward to [0.4, 0.0, 0.0]
+Robot stepped forward to [0.5, 0.0, 0.0]
+Robot stepped forward to [0.6, 0.0, 0.0]
+Robot stepped forward to [0.7, 0.0, 0.0]
+Robot stepped forward to [0.7999999999999999, 0.0, 0.0]
+Robot stepped forward to [0.8999999999999999, 0.0, 0.0]
+Robot stepped forward to [0.9999999999999999, 0.0, 0.0]
+Robot stepped forward to [1.0999999999999999, 0.0, 0.0]
+Moving robot to target [0.0, 0, 0]...
