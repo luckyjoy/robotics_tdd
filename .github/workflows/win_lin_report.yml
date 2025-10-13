@@ -157,35 +157,34 @@ jobs:
           mkdir -p allure-commandline
           tar -xzf allure.tgz -C allure-commandline --strip-components 1
           echo "$PWD/allure-commandline/bin" >> $GITHUB_PATH
-          sudo apt-get update && sudo apt-get install -y tzdata jq
+          sudo apt-get update && sudo apt-get install -y tzdata
 
-      - name: Generate Allure Reports with History & Executor
+      - name: Generate Allure Reports with History & Executors
         shell: bash
         run: |
           BUILD_NUMBER=${GITHUB_RUN_NUMBER}
           SITE_DIR="site"
           HISTORY_DIR="_history"
+
+          # ---- Prepare site and copy previous history ----
           rm -rf "$SITE_DIR"
+          mkdir -p "$SITE_DIR"
+          cp -r "$HISTORY_DIR"/* "$SITE_DIR/" 2>/dev/null || true
           mkdir -p "$SITE_DIR/latest"
 
           for OS in ubuntu-latest windows-latest; do
             ALLURE_RESULTS_DIR="allure-results/$OS"
-            mkdir -p "$ALLURE_RESULTS_DIR"
 
             if [ -d "$ALLURE_RESULTS_DIR" ] && [ -n "$(ls -A $ALLURE_RESULTS_DIR)" ]; then
+              mkdir -p "$ALLURE_RESULTS_DIR"
 
-              # ---- Copy template executor.json and update dynamic fields ----
-              if [ -f "supports/executor.json" ]; then
-                jq --arg OS "$OS" \
-                   --arg BUILD_NUMBER "$BUILD_NUMBER" \
-                   --arg RUN_URL "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-                   '.name=$OS | .buildOrder=$BUILD_NUMBER | .buildName="Build \($BUILD_NUMBER) (\($OS))" | .url=$RUN_URL | .buildUrl=$RUN_URL' \
-                   supports/executor.json > "$ALLURE_RESULTS_DIR/executor.json"
-              fi
+              # ---- Create executor.json ----
+              echo "{\"name\":\"$OS\",\"type\":\"GitHub Actions\",\"url\":\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\",\"reportUrl\":\"https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY##*/}/latest/$OS/\",\"buildOrder\":\"${GITHUB_RUN_NUMBER}\",\"buildName\":\"Build ${GITHUB_RUN_NUMBER} ($OS)\",\"buildUrl\":\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" > "$ALLURE_RESULTS_DIR/executor.json"
 
-              # ---- Copy previous history if exists ----
-              if [ -d "$HISTORY_DIR/latest/$OS/history" ]; then
-                cp -r "$HISTORY_DIR/latest/$OS/history" "$ALLURE_RESULTS_DIR/"
+              # ---- Merge previous history for trends ----
+              PREV_HISTORY="$HISTORY_DIR/latest/$OS/history"
+              if [ -d "$PREV_HISTORY" ]; then
+                cp -r "$PREV_HISTORY"/* "$ALLURE_RESULTS_DIR/" 2>/dev/null || true
               fi
 
               # ---- Generate versioned report ----
@@ -206,19 +205,24 @@ jobs:
           # ---- Update _history for trends ----
           rm -rf "$HISTORY_DIR/latest"
           mkdir -p "$HISTORY_DIR/latest"
-          cp -r "$SITE_DIR/latest"/* "$HISTORY_DIR/latest/"
+          for OS in ubuntu-latest windows-latest; do
+            mkdir -p "$HISTORY_DIR/latest/$OS"
+            cp -r "$SITE_DIR/latest/$OS/history" "$HISTORY_DIR/latest/$OS/" 2>/dev/null || true
+          done
 
-          # ---- Generate index.html for Allure Report History ----
-          HISTORY_HTML="$SITE_DIR/index.html"
-          echo "<html><head><title>Allure Report History</title></head><body><h1>Allure Report History</h1><ul>" > "$HISTORY_HTML"
-          for BUILD in $(ls -v $SITE_DIR | grep -E '^[0-9]+$'); do
-            for OS in ubuntu-latest windows-latest; do
+          # ---- Generate index.html for all builds ----
+          INDEX_FILE="$SITE_DIR/index.html"
+          echo "<html><head><title>Allure Report History</title></head><body>" > $INDEX_FILE
+          echo "<h1>Allure Report History</h1><ul>" >> $INDEX_FILE
+          for OS in ubuntu-latest windows-latest; do
+            for BUILD in $(ls -v "$SITE_DIR" | grep -E '^[0-9]+$'); do
               if [ -d "$SITE_DIR/$BUILD/$OS" ]; then
-                echo "<li><a href=\"$BUILD/$OS/\">$OS Build $BUILD</a></li>" >> "$HISTORY_HTML"
+                echo "<li><a href=\"$BUILD/$OS/\">$OS Build $BUILD</a></li>" >> $INDEX_FILE
               fi
             done
+            echo "<li><a href=\"latest/$OS/\">$OS Latest</a></li>" >> $INDEX_FILE
           done
-          echo "</ul></body></html>" >> "$HISTORY_HTML"
+          echo "</ul></body></html>" >> $INDEX_FILE
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
