@@ -44,8 +44,8 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          echo "Installing pytest allure-pytest, pytest-html..."
-          pip install pytest allure-pytest pytest-html
+          echo "Installing pytest allure-pytest..."
+          pip install pytest allure-pytest
 
       - name: Clean previous allure-results
         run: |
