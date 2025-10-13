@@ -50,7 +50,8 @@ jobs:
               set -e
               pip install pytest allure-pytest pytest-html
               rm -rf allure-results || true
-              pytest -m navigation --alluredir=allure-results | tee pytest.log
+              #pytest -m navigation --alluredir=allure-results | tee pytest.log
+              pytest --alluredir=allure-results | tee pytest.log
             "
           echo "TEST_EXIT_CODE=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
@@ -70,7 +71,8 @@ jobs:
           pip install pytest allure-pytest pytest-html
           if (Test-Path "allure-results") { Remove-Item -Recurse -Force allure-results }
           mkdir allure-results
-          pytest -m navigation --alluredir=allure-results | Tee-Object -FilePath pytest.log
+          #pytest -m navigation --alluredir=allure-results | Tee-Object -FilePath pytest.log
+          pytest --alluredir=allure-results | Tee-Object -FilePath pytest.log          
           $exitCode = $LASTEXITCODE
           Write-Host "Pytest exit code: $exitCode"
           "TEST_EXIT_CODE=$exitCode" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
@@ -230,6 +232,6 @@ jobs:
           OWNER=${GITHUB_REPOSITORY_OWNER}
 
           echo "### Robotics BDD Simulation CI/CD" >> $GITHUB_STEP_SUMMARY
-          echo "[![Ubuntu Latest Report](https://img.shields.io/badge/Ubuntu-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/ubuntu-latest/)" >> $GITHUB_STEP_SUMMARY
-          echo "[![Windows Latest Report](https://img.shields.io/badge/Windows-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/windows-latest/)" >> $GITHUB_STEP_SUMMARY
+          echo "[![Ubuntu Latest Report](https://img.shields.io/badge/Ubuntu-Latest_Build-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/ubuntu-latest/)" >> $GITHUB_STEP_SUMMARY
+          echo "[![Windows Latest Report](https://img.shields.io/badge/Windows-Latest_Build-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/windows-latest/)" >> $GITHUB_STEP_SUMMARY
           echo "[![Report History](https://img.shields.io/badge/All-Builds-green)](https://${OWNER}.github.io/${REPO_NAME}/)" >> $GITHUB_STEP_SUMMARY
