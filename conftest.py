@@ -34,7 +34,7 @@ def pytest_runtest_makereport(item, call):
     extras = getattr(rep, "extra", [])
     rep.extra = [str(e) if not isinstance(e, str) else e for e in extras]
 
-
+'''
 def pytest_html_results_table_header(cells):
     """Add Suite column to HTML report."""
     cells.insert(1, "<th>Suite</th>")
@@ -63,3 +63,4 @@ def pytest_html_results_summary(prefix, summary, postfix):
         "<p><strong>Author:</strong> Bang Thien Nguyen</p>",
         "<p><strong>Email:</strong> ontario1998@gmail.com</p>"
     ])
+'''
