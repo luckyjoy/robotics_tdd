@@ -112,7 +112,7 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------
-  # DEPLOY: only if any OS had passed OR failed (not infra-failure)
+  # DEPLOY: only if tests passed or failed (not infra-failure)
   # ---------------------------------------------------------------------
   deploy-pages:
     runs-on: ubuntu-latest
@@ -128,15 +128,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Checkout gh-pages history
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository }}
-          ref: gh-pages
-          path: _history
-          token: ${{ secrets.GITHUB_TOKEN }}
-          clean: false
 
       - name: Download Allure Results (Ubuntu)
         uses: actions/download-artifact@v4
@@ -159,11 +150,11 @@ jobs:
           echo "$PWD/allure-commandline/bin" >> $GITHUB_PATH
           sudo apt-get update && sudo apt-get install -y tzdata
 
-      - name: Generate and Deploy Allure Reports
+      - name: Generate Allure Reports
+        shell: bash
         run: |
           BUILD_NUMBER=${GITHUB_RUN_NUMBER}
           SITE_DIR="site"
-          HISTORY_DIR="_history"
           rm -rf "$SITE_DIR"
           mkdir -p "$SITE_DIR/latest"
 
@@ -179,11 +170,13 @@ jobs:
             fi
           done
 
-          echo "🚀 Deploying reports to gh-pages..."
-          npx gh-pages -d site \
-            --repo "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
-            --branch gh-pages \
-            --message "Deploy Allure Reports - Build ${GITHUB_RUN_NUMBER}"
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: site
+          publish_branch: gh-pages
+          commit_message: "Deploy Allure Reports - Build ${{ github.run_number }}"
 
       - name: Add workflow badges to summary
         run: |
