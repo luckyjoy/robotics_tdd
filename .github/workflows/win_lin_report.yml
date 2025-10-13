@@ -26,9 +26,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         include:
+          # Docker configuration for Linux only
           - os: ubuntu-latest
             container_image: python:3.10-slim-buster
 
+    # Apply the container image defined in the matrix (only on Linux)
     container: ${{ matrix.container_image }} 
 
     permissions:
@@ -86,7 +88,7 @@ jobs:
           fi
         shell: bash
 
-      - name: Generate Executor Info
+      - name: Generate Executor Info (FIX: Executors)
         run: |
           REPO_NAME=${{ github.event.repository.name }}
           REPO_OWNER=${{ github.repository_owner }}
@@ -151,7 +153,7 @@ jobs:
           tar -xzf allure.tgz -C allure-commandline --strip-components 1
           echo "$PWD/allure-commandline/bin" >> $GITHUB_PATH
 
-      - name: Generate Allure Reports (YAML Fix Applied Here)
+      - name: Generate Allure Reports
         run: |
           echo "Generating Allure reports..."
           BUILD_NUMBER=${GITHUB_RUN_NUMBER}
@@ -168,36 +170,37 @@ jobs:
 
           # 2. Generate NEW reports and merge them into the site directory
           for OS in ubuntu-latest windows-latest; do
-          ALLURE_RESULTS_DIR="allure-results/$OS" # FIXED: Flattened Bash script indentation
+          ALLURE_RESULTS_DIR="allure-results/$OS" 
           
           if [ -d "$ALLURE_RESULTS_DIR" ] && [ -n "$(ls -A $ALLURE_RESULTS_DIR)" ]; then
-          VERSIONED_REPORT_DIR="allure-report-${BUILD_NUMBER}-${OS}" # FIXED: Flattened Bash script indentation
-          mkdir -p "$VERSIONED_REPORT_DIR" # FIXED: Flattened Bash script indentation
+          VERSIONED_REPORT_DIR="allure-report-${BUILD_NUMBER}-${OS}" 
+          mkdir -p "$VERSIONED_REPORT_DIR" 
 
           # FIX: Trend: Copy history from the previous 'latest' report into the results folder
           if [ -d "$HISTORY_DIR/latest/$OS/history" ]; then
-          echo "Copying previous history for $OS to enable Trend graph..." # FIXED: Flattened Bash script indentation
-          cp -r "$HISTORY_DIR/latest/$OS/history" "$ALLURE_RESULTS_DIR/" # FIXED: Flattened Bash script indentation
+          echo "Copying previous history for $OS to enable Trend graph..."
+          # The key fix is to ensure the destination directory is correct.
+          cp -r "$HISTORY_DIR/latest/$OS/history" "$ALLURE_RESULTS_DIR/"
           else
-          echo "No previous history found for $OS." # FIXED: Flattened Bash script indentation
+          echo "No previous history found for $OS. Trend graph will start empty."
           fi
           
           # Generate the new report
-          allure generate "allure-results/$OS" --output "$VERSIONED_REPORT_DIR" --clean # FIXED: Flattened Bash script indentation
+          allure generate "allure-results/$OS" --output "$VERSIONED_REPORT_DIR" --clean 
 
           # Copy the NEW report into the site directory (this is the current build)
-          mkdir -p "$SITE_DIR/$BUILD_NUMBER/$OS" # FIXED: Flattened Bash script indentation
-          cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/$BUILD_NUMBER/$OS/" # FIXED: Flattened Bash script indentation
+          mkdir -p "$SITE_DIR/$BUILD_NUMBER/$OS" 
+          cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/$BUILD_NUMBER/$OS/" 
           
           # Update 'latest' folder with NEW report
-          mkdir -p "$SITE_DIR/latest/$OS" # FIXED: Flattened Bash script indentation
-          cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/latest/$OS/" # FIXED: Flattened Bash script indentation
+          mkdir -p "$SITE_DIR/latest/$OS" 
+          cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/latest/$OS/" 
 
           # Update build info
-          date -u +"%Y-%m-%d %H:%M:%S UTC" > "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt" # FIXED: Flattened Bash script indentation
-          cp "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt" "$SITE_DIR/latest/$OS/build-info.txt" # FIXED: Flattened Bash script indentation
+          date -u +"%Y-%m-%d %H:%M:%S UTC" > "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt" 
+          cp "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt" "$SITE_DIR/latest/$OS/build-info.txt" 
           else
-          echo "Skipping report generation for $OS: Artifact not found or empty." # FIXED: Flattened Bash script indentation
+          echo "Skipping report generation for $OS: Artifact not found or empty." 
           fi
           done
 
