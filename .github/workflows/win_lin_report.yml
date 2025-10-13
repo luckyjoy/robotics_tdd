@@ -23,7 +23,7 @@ jobs:
   run-tests:
     runs-on: ${{ matrix.os }}
     strategy:
-      # CRITICAL FIX 1: Ensure all matrix jobs complete, even if one fails (Fixes Windows artifact missing)
+      # CRITICAL FIX: Ensure all matrix jobs complete, even if one fails
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -32,7 +32,7 @@ jobs:
           - os: ubuntu-latest
             container_image: python:3.10-slim-buster
 
-    # CRITICAL RESTORATION: Apply the container image defined in the matrix (only on Linux)
+    # Docker Container Execution Environment
     container: ${{ matrix.container_image }} 
 
     permissions:
@@ -100,13 +100,20 @@ jobs:
           echo '{"name":"${{ matrix.os }}","type":"GitHub Actions","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","reportUrl":"https://${REPO_OWNER}.github.io/${REPO_NAME}/latest/${{ matrix.os }}/","buildOrder":"${{ github.run_number }}","buildName":"Build ${{ github.run_number }} (${{ matrix.os }})","buildUrl":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' > allure-results/executor.json
         shell: bash
 
-      - name: Run tests (Capture Exit Code, Allow Job to Continue)
+      - name: Run tests (Docker on Linux, Direct on Windows)
         id: run_tests
-        # Use '|| true' to ensure the step reports success and allows subsequent steps to run, 
-        # even if pytest fails. We capture the actual exit code for later use.
         run: |
-          echo "Running pytest navigation tests..."
+          if [ "${{ runner.os }}" == "Linux" ]; then
+            # Explicitly states that the test is running inside the Docker container
+            echo "Running pytest navigation tests using Docker run environment..."
+          else
+            echo "Running pytest navigation tests on Windows..."
+          fi
+          
+          # Run the pytest command on both OSes. The Linux runner handles execution within the container.
           pytest -m navigation --alluredir=allure-results | tee pytest.log
+          
+          # Capture the exit code regardless of OS
           echo "TEST_EXIT_CODE=$?" >> $GITHUB_OUTPUT
         shell: bash
 
@@ -128,7 +135,8 @@ jobs:
           exit 1
         shell: bash
 
-  # The deploy-pages job is guaranteed to run due to 'if: always()'
+---
+  
   deploy-pages:
     runs-on: ubuntu-latest
     needs: run-tests
@@ -151,7 +159,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           clean: false
 
-      # CRITICAL FIX 2: Add 'if: always()' to artifact downloads to prevent the 'deploy-pages' job from failing 
       - name: Download Linux Allure Results
         uses: actions/download-artifact@v4
         if: always()
@@ -281,5 +288,5 @@ jobs:
 
           echo "### Robotics TDD Simulation CI/CD" >> $GITHUB_STEP_SUMMARY
           echo "[![Ubuntu Latest Report](https://img.shields.io/badge/Ubuntu-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/ubuntu-latest/)" >> $GITHUB_STEP_SUMMARY
-          echo "[![Windows Latest Report](https://imgshields.io/badge/Windows-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/windows-latest/)" >> $GITHUB_STEP_SUMMARY
+          echo "[![Windows Latest Report](https://img.shields.io/badge/Windows-Latest-blue)](https://${OWNER}.github.io/${REPO_NAME}/latest/windows-latest/)" >> $GITHUB_STEP_SUMMARY
           echo "[![Report History](https://img.shields.io/badge/All-Builds-green)](https://${OWNER}.github.io/${REPO_NAME}/)" >> $GITHUB_STEP_SUMMARY
