@@ -88,7 +88,7 @@ jobs:
           fi
         shell: bash
 
-      - name: Generate Executor Info (FIX: Executors)
+      - name: Generate Executor Info
         run: |
           REPO_NAME=${{ github.event.repository.name }}
           REPO_OWNER=${{ github.repository_owner }}
@@ -153,7 +153,7 @@ jobs:
           tar -xzf allure.tgz -C allure-commandline --strip-components 1
           echo "$PWD/allure-commandline/bin" >> $GITHUB_PATH
 
-      - name: Generate Allure Reports
+      - name: Generate Allure Reports (Bash Flattened)
         run: |
           echo "Generating Allure reports..."
           BUILD_NUMBER=${GITHUB_RUN_NUMBER}
@@ -179,7 +179,6 @@ jobs:
           # FIX: Trend: Copy history from the previous 'latest' report into the results folder
           if [ -d "$HISTORY_DIR/latest/$OS/history" ]; then
           echo "Copying previous history for $OS to enable Trend graph..."
-          # The key fix is to ensure the destination directory is correct.
           cp -r "$HISTORY_DIR/latest/$OS/history" "$ALLURE_RESULTS_DIR/"
           else
           echo "No previous history found for $OS. Trend graph will start empty."
@@ -204,17 +203,17 @@ jobs:
           fi
           done
 
-      - name: Rebuild index.html (Now comprehensive as all history is local)
+      - name: Rebuild index.html (Bash Flattened)
         run: |
           SITE_DIR="site"
           echo "<html><head><title>Allure Reports History</title><style>body { font-family: sans-serif; }</style></head><body><h1>Allure Reports History</h1><hr><ul>" > "$SITE_DIR/index.html"
 
           # 1. Latest reports
           for OS in ubuntu-latest windows-latest; do
-            if [ -d "$SITE_DIR/latest/$OS" ]; then
-              TS=$(cat "$SITE_DIR/latest/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)")
-              echo "<li><strong><a href='latest/$OS/'>Latest Report ($OS)</a></strong> - Last run: ${TS}</li>" >> "$SITE_DIR/index.html"
-            fi
+          if [ -d "$SITE_DIR/latest/$OS" ]; then
+          TS=$(cat "$SITE_DIR/latest/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)")
+          echo "<li><strong><a href='latest/$OS/'>Latest Report ($OS)</a></strong> - Last run: ${TS}</li>" >> "$SITE_DIR/index.html"
+          fi
           done
           
           echo "</ul><hr><h2>All Historical Builds</h2><ul>" >> "$SITE_DIR/index.html"
@@ -223,16 +222,16 @@ jobs:
           HISTORICAL_BUILDS=$(find "$SITE_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" | xargs -n 1 basename | sort -nr)
           
           if [ -z "$HISTORICAL_BUILDS" ]; then
-              echo "<p>No historical builds found.</p>" >> "$SITE_DIR/index.html"
+          echo "<p>No historical builds found.</p>" >> "$SITE_DIR/index.html"
           else
-              for BUILD in $HISTORICAL_BUILDS; do
-                for OS in ubuntu-latest windows-latest; do
-                  if [ -d "$SITE_DIR/$BUILD/$OS" ]; then
-                    TS=$(cat "$SITE_DIR/$BUILD/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)")
-                    echo "<li><a href='${BUILD}/${OS}/'>Build #${BUILD} ($OS)</a> - ${TS}</li>" >> "$SITE_DIR/index.html"
-                  fi
-                done
-              done
+          for BUILD in $HISTORICAL_BUILDS; do
+          for OS in ubuntu-latest windows-latest; do
+          if [ -d "$SITE_DIR/$BUILD/$OS" ]; then
+          TS=$(cat "$SITE_DIR/$BUILD/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)")
+          echo "<li><a href='${BUILD}/${OS}/'>Build #${BUILD} ($OS)</a> - ${TS}</li>" >> "$SITE_DIR/index.html"
+          fi
+          done
+          done
           fi
 
           echo "</ul></body></html>" >> "$SITE_DIR/index.html"
