@@ -45,7 +45,6 @@ jobs:
       # --- Python Setup & Installation ---
 
       - name: Set up Python (Windows Only)
-        # Skip this step on Linux/Docker
         if: runner.os == 'Windows'
         uses: actions/setup-python@v5
         with:
@@ -60,7 +59,6 @@ jobs:
       - name: Install Python dependencies (Linux/Docker Only)
         if: runner.os == 'Linux'
         run: |
-          # Dependencies must be installed inside the base Docker image
           echo "Installing pytest allure-pytest inside Docker container..."
           pip install pytest allure-pytest
 
@@ -90,10 +88,18 @@ jobs:
           fi
         shell: bash
 
+      - name: Generate Executor Info (FIX: Executors)
+        run: |
+          REPO_NAME=${{ github.event.repository.name }}
+          REPO_OWNER=${{ github.repository_owner }}
+          
+          # Creates executor.json for the 'Executors' tab in Allure report
+          echo '{"name":"${{ matrix.os }}","type":"GitHub Actions","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","reportUrl":"https://${REPO_OWNER}.github.io/${REPO_NAME}/latest/${{ matrix.os }}/","buildOrder":"${{ github.run_number }}","buildName":"Build ${{ github.run_number }} (${{ matrix.os }})","buildUrl":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' > allure-results/executor.json
+        shell: bash
+
       - name: Run tests
         run: |
           echo "Running pytest navigation tests..."
-          # This command runs inside the container on Linux and natively on Windows
           pytest -m navigation --alluredir=allure-results | tee pytest.log
         shell: bash
 
@@ -109,7 +115,6 @@ jobs:
     needs: run-tests
     permissions:
       contents: write
-    # Use always() to run deployment even if the Linux job fails
     if: always()
 
     steps:
@@ -167,11 +172,18 @@ jobs:
           for OS in ubuntu-latest windows-latest; do
             ALLURE_RESULTS_DIR="allure-results/$OS"
 
-            # Only proceed if the results directory exists (i.e., the artifact was downloaded)
             if [ -d "$ALLURE_RESULTS_DIR" ] && [ -n "$(ls -A $ALLURE_RESULTS_DIR)" ]; then
               VERSIONED_REPORT_DIR="allure-report-${BUILD_NUMBER}-${OS}"
               mkdir -p "$VERSIONED_REPORT_DIR"
 
+              # FIX: Trend: Copy history from the previous 'latest' report into the results folder
+              if [ -d "$HISTORY_DIR/latest/$OS/history" ]; then
+                echo "Copying previous history for $OS to enable Trend graph..."
+                cp -r "$HISTORY_DIR/latest/$OS/history" "$ALLURE_RESULTS_DIR/"
+              else
+                echo "No previous history found for $OS."
+              fi
+              
               # Generate the new report
               allure generate "allure-results/$OS" --output "$VERSIONED_REPORT_DIR" --clean
 
