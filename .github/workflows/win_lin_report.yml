@@ -16,7 +16,7 @@ permissions:
   checks: read
   pull-requests: read
   statuses: read
-  # Ensures the built-in 'pages build and deployment' job is blocked
+  # CRITICAL: Ensures the built-in Pages job is blocked, so only the 'peaceiris' action runs
   pages: none 
   id-token: none 
 
@@ -24,7 +24,7 @@ jobs:
   run-tests:
     runs-on: ${{ matrix.os }}
     strategy:
-      # CRITICAL FIX: Ensure all matrix jobs complete, even if one fails
+      # FIX: Ensure all matrix jobs complete, even if one fails
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -37,6 +37,7 @@ jobs:
     container: ${{ matrix.container_image }} 
 
     permissions:
+      # Grant write permission only to this job for uploading artifacts
       contents: write 
 
     steps:
@@ -90,7 +91,7 @@ jobs:
 
       - name: Run tests (Docker on Linux / Direct on Windows)
         id: run_tests
-        # Use continue-on-error to ensure the job doesn't fail before artifact upload
+        # Use continue-on-error to ensure artifact upload happens even if tests fail
         continue-on-error: true
         run: |
           if [ "${{ runner.os }}" == "Linux" ]; then
@@ -130,6 +131,7 @@ jobs:
     # FIX: Ensure deploy-pages runs even if run-tests jobs were marked unstable
     if: always() 
     permissions:
+      # Grant write permission for the deployment action
       contents: write 
 
     steps:
@@ -138,18 +140,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      # CRITICAL FIX 1: Use ${{ secrets.GITHUB_TOKEN }} explicitly for checkout to ensure it works
       - name: Checkout gh-pages history
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}
           ref: gh-pages
           path: _history
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Using default GITHUB_TOKEN here is generally the most robust
+          token: ${{ secrets.GITHUB_TOKEN }} 
           clean: false
 
       - name: Download Linux Allure Results
         uses: actions/download-artifact@v4
-        # FIX: Add if: always() for robust downloads
         if: always()
         with:
           name: allure-results-ubuntu-latest
@@ -157,7 +160,6 @@ jobs:
 
       - name: Download Windows Allure Results
         uses: actions/download-artifact@v4
-        # FIX: Add if: always() for robust downloads
         if: always()
         with:
           name: allure-results-windows-latest
@@ -187,7 +189,7 @@ jobs:
           echo "Copying historical builds from $HISTORY_DIR to $SITE_DIR..."
           find "$HISTORY_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" -exec cp -r {} "$SITE_DIR/" \; 2>/dev/null || echo "No numeric history folders to copy."
 
-          # FIX: Set CURRENT local time to Los Angeles Time (PDT/PST)
+          # Set CURRENT local time to Los Angeles Time (PDT/PST)
           CURRENT_BUILD_TIME=$(TZ='America/Los_Angeles' date +"%Y-%m-%d %H:%M:%S %Z")
           echo "Current Los Angeles Time: $CURRENT_BUILD_TIME"
           
@@ -212,7 +214,6 @@ jobs:
               mkdir -p "$SITE_DIR/latest/$OS"
               cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/latest/$OS/"
 
-              # FIX: Use the local time variable
               echo "$CURRENT_BUILD_TIME" > "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt"
               cp "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt" "$SITE_DIR/latest/$OS/build-info.txt"
             else
@@ -252,11 +253,13 @@ jobs:
           echo "</ul></body></html>" >> "$SITE_DIR/index.html"
           
       - name: Deploy to GitHub Pages (Final Robust Fix)
+        # CRITICAL FIX 2: Ensure the token is passed correctly for deployment
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: site
           publish_branch: gh-pages
+          # Use force_orphan: true to completely replace the gh-pages branch content 
           force_orphan: true 
           commit_message: "Deploy Allure Reports - Build ${{ github.run_number }}"
 
