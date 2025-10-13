@@ -1,3 +1,0 @@
-Simulator state has been reset.
-Simulator state has been reset.
-Robot loaded with arm=False
