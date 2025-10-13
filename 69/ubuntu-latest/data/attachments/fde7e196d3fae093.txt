@@ -1,0 +1,4 @@
+Simulator state has been reset.
+Simulator state has been reset.
+Robot loaded with arm=True
+Arm movement blocked: arm cannot go below z=0.2

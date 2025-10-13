@@ -1,0 +1,18 @@
+Simulator state has been reset.
+Simulator state has been reset.
+Robot loaded with arm=True
+Added cube 1 at [0.3, 0, 0.25]
+Arm moved to [0.3, 0, 0.25]
+Gripper closed and attached object 1
+Arm moved to [1.0, 0, 0.25]
+Gripper released object 1
+Added cube 2 at [0.5, 0, 0.25]
+Arm moved to [0.5, 0, 0.25]
+Gripper closed and attached object 2
+Arm moved to [1.2, 0, 0.25]
+Gripper released object 2
+Added cube 3 at [0.7, 0, 0.25]
+Arm moved to [0.7, 0, 0.25]
+Gripper closed and attached object 3
+Arm moved to [1.4, 0, 0.25]
+Gripper released object 3
