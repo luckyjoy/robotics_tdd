@@ -10,16 +10,14 @@ on:
   schedule:
     - cron: '0 7 * * *'
 
-# CRITICAL FIX: Set global permissions to read-only AND explicitly set 'pages: none' 
-# to guarantee that the built-in GitHub Pages workflow is not triggered.
 permissions:
-  contents: read # Default to read
+  contents: read
   actions: read
   checks: read
   pull-requests: read
   statuses: read
-  pages: none # Ensures the built-in 'pages build and deployment' job is blocked
-  id-token: none # Blocks OIDC which can be an indirect trigger
+  pages: none 
+  id-token: none 
 
 jobs:
   run-tests:
@@ -29,13 +27,17 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     permissions:
-      contents: write # Overriding global 'read' to 'write' for artifact upload
+      contents: write 
 
     steps:
+  
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # FIX: Ensure all files, including test folders (Exit Code 3), are downloaded
+          submodules: true
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -50,33 +52,49 @@ jobs:
       - name: Clean previous allure-results
         run: |
           echo "Cleaning allure-results folder..."
-          if [ -d "allure-results" ]; then rm -rf allure-results; fi
+          if [ -d "allure-results" ];
+          then rm -rf allure-results; fi
         shell: bash
 
       - name: Copy platform-specific support files
+        # FIX: Ensure bash shell is used for cross-platform compatibility (Exit Code 1 fix)
+        shell: bash
         run: |
           echo "Copying supports files for $RUNNER_OS..."
           mkdir -p allure-results
           
-          # 1. Copy categories.json (required for custom test failure categorization)
-          cp supports/categories.json allure-results/ 2>/dev/null || echo "No categories.json file found"
+          # 1. Copy categories.json
+          cp supports/categories.json allure-results/ 2>/dev/null ||
+          echo "No categories.json file found"
 
-          # 2. Copy environment properties based on OS, renaming to environment.properties
-          if [[ "$RUNNER_OS" == "Linux" ]]; then
+          # 2. Copy environment properties based on OS
+          if [[ "$RUNNER_OS" == "Linux" ]];
+          then
             echo "Copying Ubuntu environment properties..."
-            cp supports/ubuntu.properties allure-results/environment.properties 2>/dev/null || echo "No Ubuntu environment file found"
-          elif [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp supports/ubuntu.properties allure-results/environment.properties 2>/dev/null ||
+          echo "No Ubuntu environment file found"
+          elif [[ "$RUNNER_OS" == "Windows" ]];
+          then
             echo "Copying Windows environment properties..."
-            # Using cp command here is safe because the shell for the step is bash
-            cp supports/windows.properties allure-results/environment.properties 2>/dev/null || echo "No Windows environment file found"
+            cp supports/windows.properties allure-results/environment.properties 2>/dev/null ||
+          echo "No Windows environment file found"
           fi
-        shell: bash
 
       - name: Run tests
+        shell: bash
         run: |
           echo "Running pytest navigation tests..."
-          pytest -m navigation --alluredir=allure-results | tee pytest.log
+          # FIX: Use standard output redirection for cross-platform reliability
+          pytest -m navigation --alluredir=allure-results > pytest.log 2>&1
+
+      - name: Verify Allure Results Exist
+        # FIX: Explicitly fail the job if no results were generated (Allure "unknown" fix)
         shell: bash
+        run: |
+          if [ -z "$(ls -A allure-results)" ]; then
+            echo "Error: allure-results directory is empty. Pytest likely failed or found no tests."
+            exit 1
+          fi
 
       - name: Upload Allure Results
         uses: actions/upload-artifact@v4
@@ -89,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: run-tests
     permissions:
-      contents: write # Only contents: write is strictly needed for the custom deployment (peaceiris)
+      contents: write 
 
     steps:
       - name: Checkout repository (Primary branch)
@@ -97,7 +115,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # CRITICAL FIX 1: Checkout the existing gh-pages content into a temporary folder to preserve history
       - name: Checkout gh-pages history
         uses: actions/checkout@v4
         with:
@@ -105,7 +122,6 @@ jobs:
           ref: gh-pages
           path: _history
           token: ${{ secrets.GITHUB_TOKEN }}
-          # Set clean to false just in case, though the path is new
           clean: false
 
       - name: Download Linux Allure Results
@@ -136,29 +152,27 @@ jobs:
           SITE_DIR="site"
           HISTORY_DIR="_history"
           
-          # 1. Create the local SITE_DIR
-          if [ -d "$SITE_DIR" ]; then rm -rf "$SITE_DIR"; fi
+          # 1. Prepare site directory
+          if [ -d "$SITE_DIR" ];
+          then rm -rf "$SITE_DIR"; fi
           mkdir -p "$SITE_DIR/latest"
           
-          # CRITICAL FIX 2: Copy historical reports from the cloned gh-pages branch into the new site directory
+          # 2. Copy historical reports
           echo "Copying historical builds from $HISTORY_DIR to $SITE_DIR..."
-          # This copies all folders with numeric names (the build numbers, e.g., 160, 161)
-          # It ignores files like index.html or folders like 'latest' from the old history
-          find "$HISTORY_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" -exec cp -r {} "$SITE_DIR/" \; 2>/dev/null || echo "No numeric history folders to copy."
+          find "$HISTORY_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" -exec cp -r {} "$SITE_DIR/" \;
+          2>/dev/null || echo "No numeric history folders to copy."
 
-          # 2. Generate NEW reports and merge them into the site directory
-          for OS in ubuntu-latest windows-latest; do
+          # 3. Generate NEW reports and merge
+          for OS in ubuntu-latest windows-latest;
+          do
             VERSIONED_REPORT_DIR="allure-report-${BUILD_NUMBER}-${OS}"
             mkdir -p "$VERSIONED_REPORT_DIR"
             
-            # Generate the new report
             allure generate "allure-results/$OS" --output "$VERSIONED_REPORT_DIR" --clean
 
-            # Copy the NEW report into the site directory (this is the current build)
             mkdir -p "$SITE_DIR/$BUILD_NUMBER/$OS"
             cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/$BUILD_NUMBER/$OS/"
             
-            # Update 'latest' folder with NEW report
             mkdir -p "$SITE_DIR/latest/$OS"
             cp -r "$VERSIONED_REPORT_DIR"/* "$SITE_DIR/latest/$OS/"
 
@@ -167,53 +181,54 @@ jobs:
             cp "$SITE_DIR/$BUILD_NUMBER/$OS/build-info.txt" "$SITE_DIR/latest/$OS/build-info.txt"
           done
 
-      - name: Rebuild index.html (Now comprehensive as all history is local)
+      - name: Rebuild index.html
         run: |
           SITE_DIR="site"
           echo "<html><head><title>Allure Reports History</title><style>body { font-family: sans-serif; }</style></head><body><h1>Allure Reports History</h1><hr><ul>" > "$SITE_DIR/index.html"
 
           # 1. Latest reports
-          for OS in ubuntu-latest windows-latest; do
-            if [ -d "$SITE_DIR/latest/$OS" ]; then
+          for OS in ubuntu-latest windows-latest;
+          do
+            if [ -d "$SITE_DIR/latest/$OS" ];
+          then
               TS=$(cat "$SITE_DIR/latest/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)")
               echo "<li><strong><a href='latest/$OS/'>Latest Report ($OS)</a></strong> - Last run: ${TS}</li>" >> "$SITE_DIR/index.html"
             fi
           done
           
           echo "</ul><hr><h2>All Historical Builds</h2><ul>" >> "$SITE_DIR/index.html"
-          
-          # 2. Historical reports (Guaranteed to find them now in the SITE_DIR)
-          # Use find for reliable directory detection of numeric folders
+         
+          # 2. Historical reports
           HISTORICAL_BUILDS=$(find "$SITE_DIR" -maxdepth 1 -type d -regextype posix-egrep -regex ".*\/[0-9]+$" | xargs -n 1 basename | sort -nr)
           
-          if [ -z "$HISTORICAL_BUILDS" ]; then
+          if [ -z "$HISTORICAL_BUILDS" ];
+          then
               echo "<p>No historical builds found.</p>" >> "$SITE_DIR/index.html"
           else
-              for BUILD in $HISTORICAL_BUILDS; do
-                for OS in ubuntu-latest windows-latest; do
-                  if [ -d "$SITE_DIR/$BUILD/$OS" ]; then
+              for BUILD in $HISTORICAL_BUILDS;
+          do
+                for OS in ubuntu-latest windows-latest;
+          do
+                  if [ -d "$SITE_DIR/$BUILD/$OS" ];
+          then
                     TS=$(cat "$SITE_DIR/$BUILD/$OS/build-info.txt" 2>/dev/null || echo "(no timestamp)")
                     echo "<li><a href='${BUILD}/${OS}/'>Build #${BUILD} ($OS)</a> - ${TS}</li>" >> "$SITE_DIR/index.html"
                   fi
                 done
-              done
+          done
           fi
 
           echo "</ul></body></html>" >> "$SITE_DIR/index.html"
           
-      # CRITICAL FIX 3: Deploy the full, comprehensive 'site' folder to gh-pages
-      - name: Deploy to GitHub Pages (Final Robust Fix)
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: site
           publish_branch: gh-pages
-          # Use force_orphan: true to completely replace the gh-pages branch content 
-          # with the contents of the local 'site' directory, which is now complete.
-          force_orphan: true 
+          force_orphan: true
           commit_message: "Deploy Allure Reports - Build ${{ github.run_number }}"
 
-      # The final step for adding badges remains the same
       - name: Add workflow badges to summary
         run: |
           REPO_NAME=${GITHUB_REPOSITORY##*/}
