@@ -216,8 +216,8 @@ jobs:
           done
 
           echo "</ul><hr><h2>📊 Report History & Trends</h2>" >> "$SITE_DIR/index.html"
-          BUILDS=$(find "$SITE_DIR" -mindepth 1 -maxdepth 1 -type d -printf "%f\n" | grep -E '^[0-9]+$' | sort -n)
-
+          # ✅ FIX: Sort builds from newest to oldest using `sort -nr`.
+          BUILDS=$(find "$SITE_DIR" -mindepth 1 -maxdepth 1 -type d -printf "%f\n" | grep -E '^[0-9]+$' | sort -nr)
           echo "<ul>" >> "$SITE_DIR/index.html"
           LABELS=""
           PASS_COUNTS=""
