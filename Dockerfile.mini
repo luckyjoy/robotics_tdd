@@ -39,20 +39,19 @@ ENV PATH="${PATH}:/opt/allure-${ALLURE_VERSION}/bin"
 # Python Dependency Installation
 # ===================================================================
 
-# Check if requirements.txt exists in the build context and copy it.
+# 5. Check if requirements.txt exists in the build context and copy it.
 # If it doesn't exist, this line fails and we handle it in the next step.
 COPY requirements.txt .
 
-# Ensure requirements.txt exists by creating an empty one if the previous COPY failed.
+# 6. Ensure requirements.txt exists by creating an empty one if the previous COPY failed.
 # This prevents the pip install command from failing if the file is genuinely missing.
 RUN if [ ! -f requirements.txt ]; then echo "" > requirements.txt; fi
 
-# Install core project dependencies, including the necessary testing packages
-RUN pip install --no-cache-dir \
-    -r requirements.txt || true
+# 7. Install core project dependencies, including the necessary testing packages
+RUN pip3 install --no-cache-dir pytest allure-pytest
 
-# Copy the rest of the application code into the container
+# 8. Copy the rest of the application code into the container
 COPY . /app
 
-# Set the default command to run pytest, which can still be overridden.
+# 9. Set the default command to run pytest, which can still be overridden.
 CMD ["pytest", "--alluredir=allure-results", "-m", "navigation"]
