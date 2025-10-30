@@ -48,8 +48,7 @@ COPY requirements.txt .
 RUN if [ ! -f requirements.txt ]; then echo "" > requirements.txt; fi
 
 # Install core project dependencies, including the necessary testing packages
-RUN pip install --no-cache-dir \
-    -r requirements.txt || true
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code into the container
 COPY . /app

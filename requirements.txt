@@ -1,7 +1,4 @@
 pytest
-pytest-timeout
 allure-pytest
-#pytest-xdist
-#docker
+kubernetes
 psutil
-#allure-pytest-binary
