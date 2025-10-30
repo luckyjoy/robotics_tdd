@@ -1,4 +1,4 @@
 pytest
 allure-pytest
-kubernetes
+#kubernetes
 psutil
