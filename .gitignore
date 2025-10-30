@@ -1,11 +1,12 @@
 # Existing ignored dirs
 data/
 temp/
-logs/
+logs
 examples/
 supports/*.py
 allure-results/
-tmp/
+allure-report/
+tmp
 
 # VM images & snapshots (HUGE files, never commit)
 *.qcow2
@@ -15,7 +16,7 @@ tmp/
 
 # Reports & logs
 *.log
-
+_redirects
 
 # Python caches
 __pycache__/
@@ -39,7 +40,15 @@ build/
 # OS junk
 Thumbs.db
 .DS_Store
+*.toml
 *.tmp
 *.swp
 g.bat
 build.bat
+ci.bat
+last_pushed_id.txt
+BUILD_NUMBER.txt
+debug_job.bat
+index.html
+python_image_id.tmp
+

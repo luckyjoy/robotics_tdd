@@ -2,6 +2,6 @@ pytest
 pytest-timeout
 allure-pytest
 #pytest-xdist
-#docker
+docker
 psutil
 #allure-pytest-binary
