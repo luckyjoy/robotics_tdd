@@ -91,13 +91,21 @@ robotics_tdd/
 ├─ README.md
 ├─ run_docker.bat                   # Local entrypoint
 ├─ Dockerfile                       # Container definition
+├─ Dockerfile.mini                     # Minimal Docker build file
+├─ Dockerfile.report                   # Docker build file for the report server
 ├─ .dockerignore                    # Speeds up builds
 ├─ Jenkinsfile                      # CI/CD pipeline
 ├─ pytest.ini                       # Test markers
 ├─ requirements.txt
 ├─ src/                             # Robot simulation logic
 ├─ supports/                        # Configs & Allure metadata
+├─ .github/                   		# GitHub Actions CI/CD workflows
 ├─ tests/                           # Pytest TDD suites
+├─ steps/                     		# Python step definitions (pick_and_place_steps.py, navigation_steps.py, etc.)
+├─ simulation/                		# Robot simulation and core logic (robot_sim.py, sensors.py)
+├─ allure_reports/                  # Dynamic history report files
+└─ allure-results/            		# Raw JSON/XML results (generated during test execution)
+
 ```
 
 ---

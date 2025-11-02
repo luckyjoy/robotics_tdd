@@ -8,12 +8,15 @@ pipeline {
         ALLURE_REPORT_DIR = "allure-report-latest"
         ALLURE_HISTORY_DIR = "C:\\ProgramData\\Jenkins\\.jenkins\\jobs\\robotics_tdd\\allure-history"
         PATH = "${env.PATH};${env.USERPROFILE}\\AppData\\Roaming\\npm"
-        DOCKER_IMAGE = "python:3.10-slim" // Corrected to use the slim image base for robustness
+        DOCKER_IMAGE = "python:3.10-slim"
+        // Define the suite argument for pytest -m
+        SUITE_ARGUMENT = "pick or navigation or walking or safety"
     }
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         disableConcurrentBuilds()
+        timestamps() 
     }
 
     stages {
@@ -29,7 +32,7 @@ pipeline {
                 bat """
                     "%PYTHON_EXE%" -m pip install --upgrade pip
                     if exist requirements.txt "%PYTHON_EXE%" -m pip install -r requirements.txt
-                    "%PYTHON_EXE%" -m pip install pytest allure-pytest
+                    "%PYTHON_EXE%" -m pip install pytest allure-pytest pytest-tdd
                     npm install -g allure-commandline --force
                     where allure >nul 2>nul || (echo Allure CLI not found on PATH. Ensure npm global bin is on PATH & exit /b 1)
                 """
@@ -49,10 +52,11 @@ pipeline {
 
         stage('Run Pytest (Windows)') {
             steps {
-                echo "Running tests with Allure on Windows..."
+                echo "Running tests with Allure on Windows using suite: %SUITE_ARGUMENT%"
                 catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
-                    bat "\"%PYTHON_EXE%\" -m pytest -m navigation --alluredir=\"%ALLURE_RESULTS_DIR%\" --capture=tee-sys"
-                }
+                    // Running required test markers using the SUITE_ARGUMENT variable
+                    bat "\"%PYTHON_EXE%\" -m pytest -m \"%SUITE_ARGUMENT%\" --alluredir=\"%ALLURE_RESULTS_DIR%\" --capture=tee-sys"
+				}
                 echo "Windows tests execution complete."
             }
         }
@@ -70,18 +74,19 @@ pipeline {
 
 					# Ensure results dir exists/clean
 					if (Test-Path "$env:WORKSPACE\\linux-allure-results") { Remove-Item -Recurse -Force "$env:WORKSPACE\\linux-allure-results" }
-					New-Item -ItemType Directory -Force -Path "$env:WORKSPACE\\linux-allure-results" | Out-Null
+					New-Item -ItemType Directory -ItemType Directory -Force -Path "$env:WORKSPACE\\linux-allure-results" | Out-Null
 
 					Write-Host "========================================================="
 					Write-Host "Running Robotics TDD Docker Simulation Tests..."
 					Write-Host "Docker Image: $env:DOCKER_IMAGE"
+                    Write-Host "Pytest Suite: $env:SUITE_ARGUMENT"
 					Write-Host "========================================================="
 
-					# CORRECTED: Simply pull the image. Docker handles the inspection/caching without PowerShell erroring.
 					docker pull $env:DOCKER_IMAGE
 
+					// Use the SUITE_ARGUMENT environment variable in the Docker run command
 					docker run --rm -v "$env:WORKSPACE:/tests" -w /tests $env:DOCKER_IMAGE bash -lc \
-						"pip install -q pytest allure-pytest && pytest -m navigation --alluredir=/tests/linux-allure-results"
+						"pip install -q pytest allure-pytest && pytest -m \\"$env:SUITE_ARGUMENT\\" --alluredir=/tests/linux-allure-results"
 					'''
 				}
 			}
@@ -116,7 +121,7 @@ pipeline {
                     writeFile file: "${ALLURE_RESULTS_DIR}/categories.json", text: categoriesJson
 
                     def executorJson = """{
-                        "name": "Robotics TDD Framework Runner",
+                        "name": "Robotics TDD Framework - Suite: ${env.SUITE_ARGUMENT}",
                         "type": "CI_Pipeline",
                         "url": "${env.JENKINS_URL}",
                         "buildOrder": "${env.BUILD_ID}",
@@ -126,7 +131,8 @@ pipeline {
                         "data": {
                             "Validation Engineer": "TBD",
                             "Product Model": "TDD-Sim-PyBullet",
-                            "Test Framework": "pytest"
+                            "Test Framework": "pytest",
+                            "Pytest Suite Argument": "${env.SUITE_ARGUMENT}" 
                         }
                     }""".stripIndent()
                     writeFile file: "${ALLURE_RESULTS_DIR}/executor.json", text: executorJson
@@ -136,7 +142,7 @@ pipeline {
 						Robot Model=Gazebo_Pioneer3DX
 						Simulation Engine=PyBullet
 						Operating System=Windows 11
-						Docker_Image_Name=robotics-runner
+						Docker_Image_Name=robotics-tdd-runner
 						Docker_Build_Context=Repository Root (.)
 						Docker_Runtime_Environment=Run Linux Tests in Docker (PowerShell)
 						Docker_Key_Role=Provides isolated environment for Pytest and Allure data generation.
@@ -174,13 +180,15 @@ pipeline {
                 script {
                     echo 'Archiving and publishing Allure report...'
                     archiveArtifacts artifacts: "${ALLURE_REPORT_DIR}/**/*", allowEmptyArchive: true
-                    publishHTML(target: [
+             
+                    // ✅ Pass the single report configuration map directly to the 'target' parameter.
+                    publishHTML target: [
                         reportName: "Robotics-TDD-Allure-Report-Build-${env.BUILD_NUMBER}-CrossPlatform",
                         reportDir: "${ALLURE_REPORT_DIR}",
                         reportFiles: "index.html",
                         keepAll: true,
                         alwaysLinkToLastBuild: true
-                    ])
+                    ]
                 }
             }
         }
