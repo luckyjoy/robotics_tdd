@@ -1,6 +1,7 @@
 # 🤖 Robotics Test-Driven Development (TDD) Framework
 
 > **A robust, test-driven framework for verifying functionality, path planning, and safety protocols of a simulated mobile manipulator robot.**
+It integrates a Robotic Framework with pytest , Allure Reporting, Kubernetes (K8s) orchestration for scalable across multiple hosts, and production-grade CI/CD (Jenkins/Github Actions) automation.
 
 ---
 
